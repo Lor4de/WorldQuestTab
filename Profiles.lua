@@ -1,10 +1,4 @@
-﻿local addonName, addon = ...
-local WQT = addon.WQT;
-local _L = addon.L
-local _V = addon.variables;
-local ADD = LibStub("AddonDropDown-2.0");
-local WQT_Utils = addon.WQT_Utils;
-local WQT_Profiles = addon.WQT_Profiles;
+﻿WorldQuestTab = LibStub("AceAddon-3.0"):GetAddon("WorldQuestTab")
 
 local _profileReferenceList = {};
 
@@ -41,22 +35,12 @@ local function ClearDefaults(a, b)
 end
 
 local function ProfileNameIsAvailable(name)
-	for k, v in pairs(WQT.db.global.profiles) do
+	for k, v in pairs(WorldQuestTab.db.global.profiles) do
 		if (v.name == name) then
 			return false;
 		end
 	end
 	return true;
-end
-
-local function ForceCopy(a, b)
-	for k, v in pairs(b) do
-		if (type(v) == "table") then
-			ForceCopy(a[k], v);
-		else
-			a[k] = v;
-		end
-	end
 end
 
 local function CopyIfNil(a, b)
@@ -76,15 +60,15 @@ local function CopyIfNil(a, b)
 end
 
 local function AddCategoryDefaults(category)
-	if (not _V["WQT_DEFAULTS"].global[category]) then
+	if (not WorldQuestTab.Variables["WQT_DEFAULTS"].global[category]) then
 		return;
 	end
 	-- In case a setting doesn't have a newer category yet
-	if (not WQT.settings[category]) then
-		WQT.settings[category] = {};
+	if (not WorldQuestTab.settings[category]) then
+		WorldQuestTab.settings[category] = {};
 	end
 	
-	CopyIfNil(WQT.settings[category], _V["WQT_DEFAULTS"].global[category]);
+	CopyIfNil(WorldQuestTab.settings[category], WorldQuestTab.Variables["WQT_DEFAULTS"].global[category]);
 end
 
 local function GetProfileById(id)
@@ -108,51 +92,51 @@ local function ApplyVersionChanges(profile, version)
 	end
 end
 
-function WQT_Profiles:InitSettings()
+function WorldQuestTab.WQT_Profiles:InitSettings()
 	self.externalDefaults = {};
 
 	-- Version checking
-	local settingVersion = WQT.db.global.versionCheck or"0";
-	local currentVersion = GetAddOnMetadata(addonName, "version");
+	local settingVersion = WorldQuestTab.db.global.versionCheck or"0";
+	local currentVersion = C_AddOns.GetAddOnMetadata(WorldQuestTab:GetName(), "version");
 	if (settingVersion < currentVersion) then
-		WQT.db.global.updateSeen = false;
-		WQT.db.global.versionCheck  = currentVersion;
+		WorldQuestTab.db.global.updateSeen = false;
+		WorldQuestTab.db.global.versionCheck  = currentVersion;
 	end
 	
 	-- Setup profiles
-	WQT.settings = {["colors"] = {}, ["general"] = {}, ["list"] = {}, ["pin"] = {}, ["filters"] = {}};
-	if (not WQT.db.global.profiles[0]) then
+	WorldQuestTab.settings = {["colors"] = {}, ["general"] = {}, ["list"] = {}, ["pin"] = {}, ["filters"] = {}};
+	if (not WorldQuestTab.db.global.profiles[0]) then
 		local profile = {
 			["name"] = DEFAULT
-			,["colors"] = CopyTable(WQT.db.global.colors or {})
-			,["general"] = CopyTable(WQT.db.global.general or {})
-			,["list"] = CopyTable(WQT.db.global.list or {})
-			,["pin"] = CopyTable(WQT.db.global.pin or {})
-			,["filters"] = CopyTable(WQT.db.global.filters or {})
+			,["colors"] = CopyTable(WorldQuestTab.db.global.colors or {})
+			,["general"] = CopyTable(WorldQuestTab.db.global.general or {})
+			,["list"] = CopyTable(WorldQuestTab.db.global.list or {})
+			,["pin"] = CopyTable(WorldQuestTab.db.global.pin or {})
+			,["filters"] = CopyTable(WorldQuestTab.db.global.filters or {})
 		}
-		WQT.db.global.colors = nil;
-		WQT.db.global.general = nil;
-		WQT.db.global.list = nil;
-		WQT.db.global.pin = nil;
-		WQT.db.global.filters = nil;
+		WorldQuestTab.db.global.colors = nil;
+		WorldQuestTab.db.global.general = nil;
+		WorldQuestTab.db.global.list = nil;
+		WorldQuestTab.db.global.pin = nil;
+		WorldQuestTab.db.global.filters = nil;
 		
-		WQT.db.global.profiles[0] = profile;
+		WorldQuestTab.db.global.profiles[0] = profile;
 		self:LoadProfileInternal(0, profile);
 	end
 
 	
-	for id, profile in pairs(WQT.db.global.profiles) do
+	for id, profile in pairs(WorldQuestTab.db.global.profiles) do
 		ApplyVersionChanges(profile, settingVersion);
 		AddProfileToReferenceList(id, profile.name);
 	end
 
-	self:Load(WQT.db.char.activeProfile);
+	self:Load(WorldQuestTab.db.char.activeProfile);
 end
 
-function WQT_Profiles:GetProfiles()
+function WorldQuestTab.WQT_Profiles:GetProfiles()
 	-- Make sure names are up to date
 	for index, refProfile in ipairs(_profileReferenceList) do
-		local profile = WQT.db.global.profiles[refProfile.arg1];
+		local profile = WorldQuestTab.db.global.profiles[refProfile.arg1];
 		if (profile) then
 			refProfile.label = profile.name;
 		end
@@ -164,7 +148,7 @@ function WQT_Profiles:GetProfiles()
 	return _profileReferenceList;
 end
 
-function WQT_Profiles:CreateNew()
+function WorldQuestTab.WQT_Profiles:CreateNew()
 	local id = time();
 	if (GetProfileById(id)) then
 		-- Profile for current timestamp already exists. Don't spam the bloody button
@@ -172,7 +156,7 @@ function WQT_Profiles:CreateNew()
 	end
 	
 	-- Get current settings to copy over
-	local currentSettings = WQT.db.global.profiles[WQT.db.char.activeProfile];
+	local currentSettings = WorldQuestTab.db.global.profiles[WorldQuestTab.db.char.activeProfile];
 
 	if (not currentSettings) then
 		return;
@@ -188,26 +172,26 @@ function WQT_Profiles:CreateNew()
 		,["filters"] = CopyTable(currentSettings.filters or {})
 	}
 	
-	WQT.db.global.profiles[id] = profile;
+	WorldQuestTab.db.global.profiles[id] = profile;
 	AddProfileToReferenceList(id, profile.name);
 	self:Load(id);
 end
 
-function WQT_Profiles:LoadIndex(index)
+function WorldQuestTab.WQT_Profiles:LoadIndex(index)
 	local profile = _profileReferenceList[index];
 	
-	if (profile) then
+	if not profile then
 		self:LoadDefault();
 		return;
 	end
 	
-	self:Load(profile.id);
+	self:Load(profile.arg1);
 end
 
-function WQT_Profiles:LoadProfileInternal(id, profile)
+function WorldQuestTab.WQT_Profiles:LoadProfileInternal(id, profile)
 
-	WQT.db.char.activeProfile = id;
-	WQT.settings = profile;
+	WorldQuestTab.db.char.activeProfile = id;
+	WorldQuestTab.settings = profile;
 	
 	-- Add defaults
 	AddCategoryDefaults("colors");
@@ -217,35 +201,35 @@ function WQT_Profiles:LoadProfileInternal(id, profile)
 	AddCategoryDefaults("filters");
 	
 	
-	local externals = WQT.settings.external;
-	if (not externals) then
-		WQT.settings.external = {};
-		externals = WQT.settings.external
+	local Externals = WorldQuestTab.settings.External;
+	if (not Externals) then
+		WorldQuestTab.settings.External = {};
+		Externals = WorldQuestTab.settings.External
 	end
 	
-	for external, settings in pairs(self.externalDefaults) do
-		local externalSettings = externals[external];
+	for External, settings in pairs(self.externalDefaults) do
+		local externalSettings = Externals[External];
 		if (not externalSettings) then
-			externals[external] = {};
-			externalSettings = externals[external];
+			Externals[External] = {};
+			externalSettings = Externals[External];
 		end
 		CopyIfNil(externalSettings, settings);
 	end
 	
 	-- Make sure our colors are up to date
-	WQT_Utils:LoadColors();
+	WorldQuestTab.WQT_Utils:LoadColors();
 end
 
 
-function WQT_Profiles:Load(id)
-	WQT_Profiles:ClearDefaultsFromActive();
+function WorldQuestTab.WQT_Profiles:Load(id)
+	WorldQuestTab.WQT_Profiles:ClearDefaultsFromActive();
 
 	if (not id or id == 0) then
 		self:LoadDefault();
 		return;
 	end
 
-	local profile = WQT.db.global.profiles[id];
+	local profile = WorldQuestTab.db.global.profiles[id];
 	
 	if (not profile) then
 		-- Profile not found
@@ -256,7 +240,7 @@ function WQT_Profiles:Load(id)
 	WQT_WorldQuestFrame:TriggerCallback("LoadProfile");
 end
 
-function WQT_Profiles:Delete(id)
+function WorldQuestTab.WQT_Profiles:Delete(id)
 	if (not id or id == 0) then
 		-- Trying to delete the default profile? That's a paddlin'
 		return;
@@ -266,28 +250,28 @@ function WQT_Profiles:Delete(id)
 	
 	if (index) then
 		tremove(_profileReferenceList, index);
-		WQT.db.global.profiles[id] = nil;
+		WorldQuestTab.db.global.profiles[id] = nil;
 	end
 
 	self:LoadDefault();
 end
 
-function WQT_Profiles:LoadDefault()
-	self:LoadProfileInternal(0, WQT.db.global.profiles[0]);
+function WorldQuestTab.WQT_Profiles:LoadDefault()
+	self:LoadProfileInternal(0, WorldQuestTab.db.global.profiles[0]);
 end
 
-function WQT_Profiles:DefaultIsActive()
-	return not WQT or not WQT.db.global or not WQT.db.char.activeProfile or WQT.db.char.activeProfile == 0
+function WorldQuestTab.WQT_Profiles:DefaultIsActive()
+	return not WQT or not WorldQuestTab.db.global or not WorldQuestTab.db.char.activeProfile or WorldQuestTab.db.char.activeProfile == 0
 end
 
-function WQT_Profiles:IsValidProfileId(id)
+function WorldQuestTab.WQT_Profiles:IsValidProfileId(id)
 	if (not id or id == 0) then 
 		return false;
 	end
-	return WQT.db.global.profiles[id] and true or false;
+	return WorldQuestTab.db.global.profiles[id] and true or false;
 end
 
-function WQT_Profiles:GetFirstValidProfileName(baseName)
+function WorldQuestTab.WQT_Profiles:GetFirstValidProfileName(baseName)
 	if(not baseName) then
 		local playerName = UnitName("player"); -- Realm still returns nill, sick
 		local realmName = GetRealmName();
@@ -309,98 +293,98 @@ function WQT_Profiles:GetFirstValidProfileName(baseName)
 	return combinedName;
 end
 
-function WQT_Profiles:ChangeActiveProfileName(newName)
+function WorldQuestTab.WQT_Profiles:ChangeActiveProfileName(newName)
 	local profileId = self:GetActiveProfileId();
 	if (not profileId or profileId == 0) then
 		-- Don't change the default profile name
 		return;
 	end
 	-- Add suffix number in case of duplicate
-	newName = WQT_Profiles:GetFirstValidProfileName(newName);
+	newName = WorldQuestTab.WQT_Profiles:GetFirstValidProfileName(newName);
 	
 	local profile = GetProfileById(profileId);
 	if(profile) then
 		profile.label = newName;
-		WQT.db.global.profiles[profileId].name = newName;
+		WorldQuestTab.db.global.profiles[profileId].name = newName;
 	end
 end
 
-function WQT_Profiles:GetActiveProfileId()
-	return WQT.db.char.activeProfile;
+function WorldQuestTab.WQT_Profiles:GetActiveProfileId()
+	return WorldQuestTab.db.char.activeProfile;
 end
 
-function WQT_Profiles:GetIndexById(id)
+function WorldQuestTab.WQT_Profiles:GetIndexById(id)
 	local profile, index = GetProfileById(id);
 	return index or 0;
 end
 
-function WQT_Profiles:GetActiveProfileName()
-	local activeProfile = WQT.db.char.activeProfile;
+function WorldQuestTab.WQT_Profiles:GetActiveProfileName()
+	local activeProfile = WorldQuestTab.db.char.activeProfile;
 	if(activeProfile == 0) then
 		return DEFAULT;
 	end
 	
-	local profile = WQT.db.global.profiles[activeProfile or 0];
+	local profile = WorldQuestTab.db.global.profiles[activeProfile or 0];
 	
 	return profile and profile.name or "Invalid Profile";
 end
 
-function WQT_Profiles:ClearDefaultsFromActive()
+function WorldQuestTab.WQT_Profiles:ClearDefaultsFromActive()
 	local category = "general";
 	
-	ClearDefaults(WQT.settings[category], _V["WQT_DEFAULTS"].global[category]);
+	ClearDefaults(WorldQuestTab.settings[category], WorldQuestTab.Variables["WQT_DEFAULTS"].global[category]);
 	category = "list";
-	ClearDefaults(WQT.settings[category], _V["WQT_DEFAULTS"].global[category]);
+	ClearDefaults(WorldQuestTab.settings[category], WorldQuestTab.Variables["WQT_DEFAULTS"].global[category]);
 	category = "pin";
-	ClearDefaults(WQT.settings[category], _V["WQT_DEFAULTS"].global[category]);
+	ClearDefaults(WorldQuestTab.settings[category], WorldQuestTab.Variables["WQT_DEFAULTS"].global[category]);
 	category = "filters";
-	ClearDefaults(WQT.settings[category], _V["WQT_DEFAULTS"].global[category]);
+	ClearDefaults(WorldQuestTab.settings[category], WorldQuestTab.Variables["WQT_DEFAULTS"].global[category]);
 	category = "colors";
-	ClearDefaults(WQT.settings[category], _V["WQT_DEFAULTS"].global[category]);
+	ClearDefaults(WorldQuestTab.settings[category], WorldQuestTab.Variables["WQT_DEFAULTS"].global[category]);
 	
 	--External
-	local externals = WQT.settings.external;
-	for external, settings in pairs(self.externalDefaults) do
-		ClearDefaults(externals[external], settings);
+	local Externals = WorldQuestTab.settings.External;
+	for External, settings in pairs(self.externalDefaults) do
+		ClearDefaults(Externals[External], settings);
 	end
 	
 	WQT_WorldQuestFrame:TriggerCallback("ClearDefaults");
 end
 
-function WQT_Profiles:ResetActive()
+function WorldQuestTab.WQT_Profiles:ResetActive()
 	local category = "general";
-	wipe(WQT.settings[category]);
-	WQT.settings[category]= CopyTable(_V["WQT_DEFAULTS"].global[category]);
+	wipe(WorldQuestTab.settings[category]);
+	WorldQuestTab.settings[category]= CopyTable(WorldQuestTab.Variables["WQT_DEFAULTS"].global[category]);
 	category = "list";
-	wipe(WQT.settings[category]);
-	WQT.settings[category]= CopyTable(_V["WQT_DEFAULTS"].global[category]);
+	wipe(WorldQuestTab.settings[category]);
+	WorldQuestTab.settings[category]= CopyTable(WorldQuestTab.Variables["WQT_DEFAULTS"].global[category]);
 	category = "pin";
-	wipe(WQT.settings[category]);
-	WQT.settings[category]= CopyTable(_V["WQT_DEFAULTS"].global[category]);
+	wipe(WorldQuestTab.settings[category]);
+	WorldQuestTab.settings[category]= CopyTable(WorldQuestTab.Variables["WQT_DEFAULTS"].global[category]);
 	category = "filters";
-	wipe(WQT.settings[category]);
-	WQT.settings[category]= CopyTable(_V["WQT_DEFAULTS"].global[category]);
+	wipe(WorldQuestTab.settings[category]);
+	WorldQuestTab.settings[category]= CopyTable(WorldQuestTab.Variables["WQT_DEFAULTS"].global[category]);
 	category = "colors";
-	wipe(WQT.settings[category]);
-	WQT.settings[category]= CopyTable(_V["WQT_DEFAULTS"].global[category]);
+	wipe(WorldQuestTab.settings[category]);
+	WorldQuestTab.settings[category]= CopyTable(WorldQuestTab.Variables["WQT_DEFAULTS"].global[category]);
 	
 	-- Make sure our colors are up to date
-	WQT_Utils:LoadColors();
+	WorldQuestTab.WQT_Utils:LoadColors();
 	
 	--External
-	local externals = WQT.settings.external;
-	for external, settings in pairs(self.externalDefaults) do
-		if (externals[external]) then
-			wipe(externals[external]);
+	local Externals = WorldQuestTab.settings.External;
+	for External, settings in pairs(self.externalDefaults) do
+		if (Externals[External]) then
+			wipe(Externals[External]);
 			-- The external has a direct reference to this table, so don't replace it
-			CopyIfNil(externals[external], settings);
+			CopyIfNil(Externals[External], settings);
 		end
 	end
 	
 	WQT_WorldQuestFrame:TriggerCallback("ResetActive");
 end
 
-function WQT_Profiles:RegisterExternalSettings(key, settings)
+function WorldQuestTab.WQT_Profiles:RegisterExternalSettings(key, settings)
 	local list = self.externalDefaults[key];
 	if (not list) then
 		list = {};
@@ -408,7 +392,7 @@ function WQT_Profiles:RegisterExternalSettings(key, settings)
 	end
 	
 	CopyIfNil(list, settings);
-	self:Load(WQT.db.char.activeProfile);
+	self:Load(WorldQuestTab.db.char.activeProfile);
 	
-	return WQT.settings.external[key];
+	return WorldQuestTab.settings.External[key];
 end

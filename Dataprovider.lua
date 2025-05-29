@@ -1,15 +1,10 @@
-﻿local _, addon = ...
+﻿WorldQuestTab = LibStub("AceAddon-3.0"):GetAddon("WorldQuestTab")
 
 ----------------------------
 -- VARIABLES
 ----------------------------
 
-local WQT = addon.WQT;
-local _L = addon.L;
-local _V = addon.variables;
-local WQT_Utils = addon.WQT_Utils;
-
-local _WFMLoaded = IsAddOnLoaded("WorldFlightMap");
+local WQT_Utils = WorldQuestTab.WQT_Utils;
 local _azuriteID = C_CurrencyInfo.GetAzeriteCurrencyID();
 
 ----------------------------
@@ -20,21 +15,23 @@ local function UpdateAzerothZones(newLevel)
 	newLevel = newLevel or UnitLevel("player");
 	
 	local expLevel = GetAccountExpansionLevel();
-	local worldTable = _V["WQT_ZONE_MAPCOORDS"][947]
+	local worldTable = WorldQuestTab.Variables["WQT_ZONE_MAPCOORDS"][947]
 	wipe(worldTable);
 	
 	-- world map continents depending on expansion level
-	worldTable[113] = {["x"] = 0.49, ["y"] = 0.13} -- Northrend
-	worldTable[424] = {["x"] = 0.46, ["y"] = 0.92} -- Pandaria
-	worldTable[12] = {["x"] = 0.19, ["y"] = 0.5} -- Kalimdor
-	worldTable[13] = {["x"] = 0.88, ["y"] = 0.56} -- Eastern Kingdom
+	worldTable[113] = {["x"] = 0.49, ["y"] = 0.12} -- Northrend
+	worldTable[424] = {["x"] = 0.48, ["y"] = 0.82} -- Pandaria
+	worldTable[12] = {["x"] = 0.24, ["y"] = 0.55} -- Kalimdor
+	worldTable[13] = {["x"] = 0.89, ["y"] = 0.52} -- Eastern Kingdom
 	
-	-- Always take the highest expansion
-	if (expLevel >= LE_EXPANSION_BATTLE_FOR_AZEROTH and newLevel >= 50) then
-		worldTable[875] = {["x"] = 0.54, ["y"] = 0.61} -- Zandalar
-		worldTable[876] = {["x"] = 0.72, ["y"] = 0.49} -- Kul Tiras
-	elseif (expLevel >= LE_EXPANSION_LEGION and newLevel >= 50) then
-		worldTable[619] = {["x"] = 0.6, ["y"] = 0.41} -- Broken Isles
+	-- Always take the highest expansion 
+	if (expLevel >= LE_EXPANSION_DRAGONFLIGHT and newLevel >= 58) then
+		worldTable[1978] = {["x"] = 0.77, ["y"] = 0.22} -- Dragon Isles
+	elseif (expLevel >= LE_EXPANSION_BATTLE_FOR_AZEROTH and newLevel >= 50) then
+		worldTable[875] = {["x"] = 0.54, ["y"] = 0.63} -- Zandalar
+		worldTable[876] = {["x"] = 0.71, ["y"] = 0.50} -- Kul Tiras
+	elseif (expLevel >= LE_EXPANSION_LEGION and newLevel >= 45) then
+		worldTable[619] = {["x"] = 0.58, ["y"] = 0.39} -- Broken Isles
 	end
 end
 
@@ -81,7 +78,7 @@ end
 local function ScanTooltipRewardForPattern(questID, pattern)
 	local result;
 	
-	WQT_Utils:AddQuestRewardsToTooltip(WQT_ScrapeTooltip, questID, TOOLTIP_QUEST_REWARDS_STYLE_DEFAULT);
+	WQT_Utils:AddQuestRewardsToTooltip(WQT_ScrapeTooltip, questID, TOOLTIP_QUEST_REWARDS_STYLE_WORLD_QUEST);
 
 	for i=2, 6 do
 		local line = _G["WQT_ScrapeTooltipTooltipTextLeft"..i];
@@ -100,8 +97,8 @@ local function ScanTooltipRewardForPattern(questID, pattern)
 end
 
 local function ZonesByExpansionSort(a, b)
-	local expA = _V["WQT_ZONE_EXPANSIONS"][a];
-	local expB = _V["WQT_ZONE_EXPANSIONS"][b];
+	local expA = WorldQuestTab.Variables["WQT_ZONE_EXPANSIONS"][a];
+	local expB = WorldQuestTab.Variables["WQT_ZONE_EXPANSIONS"][b];
 	if (not expA or not expB or expA == expB) then
 		return b > a;
 	end
@@ -114,13 +111,13 @@ end
 
 local QuestInfoMixin = {};
 
-function WQT_Utils:QuestCreationFunc(questId)
+function WQT_Utils:QuestCreationFunc(questID)
 	local questInfo = CreateFromMixins(QuestInfoMixin);
 	questInfo:OnCreate();
 	
 	local hasRewardData = false;
-	if (questId) then
-		hasRewardData = questInfo:Init(questId);
+	if (questID) then
+		hasRewardData = questInfo:Init(questID);
 	end
 	
 	return questInfo, hasRewardData;
@@ -130,24 +127,42 @@ local function QuestResetFunc(pool, questInfo)
 	questInfo:Reset();
 end
 
-function QuestInfoMixin:Init(questId, isDaily, isCombatAllyQuest, alwaysHide, posX, posY)
-	self.questId = questId;
+local function IsRewardWarbandBonus(rewardInfo)
+	local mainRewardIsFirstTimeReputationBonus = false;
+	local secondaryRewardsContainFirstTimeRepBonus = false;
+	
+	if rewardInfo then
+		local isFirstTimeReward = rewardInfo.questRewardContextFlags and FlagsUtil.IsSet(rewardInfo.questRewardContextFlags, Enum.QuestRewardContextFlags.FirstCompletionBonus);
+		mainRewardIsFirstTimeReputationBonus = isFirstTimeReward and (C_CurrencyInfo.GetFactionGrantedByCurrency(rewardInfo.currencyID) ~= nil) or false;
+	elseif C_QuestLog.QuestContainsFirstTimeRepBonusForPlayer(questID) then
+		secondaryRewardsContainFirstTimeRepBonus = true;
+	end
+	
+	if mainRewardIsFirstTimeReputationBonus or secondaryRewardsContainFirstTimeRepBonus then
+		return true;
+	end
+	return false;
+end
+
+function QuestInfoMixin:Init(questID, isDaily, isCombatAllyQuest, alwaysHide, posX, posY)
+	self.questID = questID;
 	self.isDaily = isDaily;
 	self.isAllyQuest = isCombatAllyQuest;
 	self.alwaysHide = alwaysHide;
 	self:SetMapPos(posX, posY);
-	self.tagInfo = C_QuestLog.GetQuestTagInfo(questId);
+	self.tagInfo = C_QuestLog.GetQuestTagInfo(questID);
 	
-	self.isValid = HaveQuestData(self.questId);
+	self.isValid = HaveQuestData(self.questID);
 	self.time.seconds = WQT_Utils:GetQuestTimeString(self); -- To check if expired or never had a time limit
 	self.passedFilter = true;
 	
 	-- quest type
 	self.typeBits = WQT_QUESTTYPE.normal;
 	if (isDaily) then self.typeBits = bit.bor(self.typeBits, WQT_QUESTTYPE.daily); end
-	if (C_QuestLog.IsThreatQuest(self.questId)) then self.typeBits = bit.bor(self.typeBits, WQT_QUESTTYPE.threat); end
-	if (C_QuestLog.IsQuestCalling(self.questId)) then self.typeBits = bit.bor(self.typeBits, WQT_QUESTTYPE.calling); end
+	if (C_QuestLog.IsThreatQuest(self.questID)) then self.typeBits = bit.bor(self.typeBits, WQT_QUESTTYPE.threat); end
+	if (C_QuestLog.IsQuestCalling(self.questID)) then self.typeBits = bit.bor(self.typeBits, WQT_QUESTTYPE.calling); end
 	if (isCombatAllyQuest) then self.typeBits = bit.bor(self.typeBits, WQT_QUESTTYPE.combatAlly); end
+	if (QuestUtils_IsQuestBonusObjective(self.questID)) then self.typeBits = bit.bor(self.typeBits, WQT_QUESTTYPE.bonus); end
 
 	-- rewards
 	self:LoadRewards();
@@ -187,100 +202,123 @@ function QuestInfoMixin:LoadRewards(force)
 	if (not force and self.hasRewardData) then return; end
 
 	wipe(self.rewardList);
-	local haveData = HaveQuestRewardData(self.questId);
+	local haveData = HaveQuestRewardData(self.questID);
 	if (haveData) then
 		self.reward.typeBits = WQT_REWARDTYPE.none;
+		
 		-- Items
-		if (GetNumQuestLogRewards(self.questId) > 0) then
-			local _, texture, numItems, quality, _, rewardId, ilvl = GetQuestLogRewardInfo(1, self.questId);
+		if (GetNumQuestLogRewards(self.questID) > 0) then
+			local _, texture, numItems, quality, _, rewardId, ilvl = GetQuestLogRewardInfo(1, self.questID);
 
 			if (rewardId) then
-				local price, typeID, subTypeID = select(11, GetItemInfo(rewardId));
+				local price = select(11, GetItemInfo(rewardId));
+				
 				if (C_Soulbinds.IsItemConduitByItemInfo(rewardId)) then
 					-- Conduits
 					-- Lovely yikes on getting the type
-					local conduitType = ScanTooltipRewardForPattern(self.questId, "(.+)") or "";
-					local subType = _V["CONDUIT_SUBTYPE"].endurance;
+					local conduitType = ScanTooltipRewardForPattern(self.questID, "(.+)") or "";
+					local subType = WorldQuestTab.Variables["CONDUIT_SUBTYPE"].endurance;
 					if(conduitType == CONDUIT_TYPE_FINESSE) then
-						subType = _V["CONDUIT_SUBTYPE"].finesse;
+						subType = WorldQuestTab.Variables["CONDUIT_SUBTYPE"].finesse;
 					elseif(conduitType == CONDUIT_TYPE_POTENCY) then
-						subType = _V["CONDUIT_SUBTYPE"].potency;
+						subType = WorldQuestTab.Variables["CONDUIT_SUBTYPE"].potency;
 					end
-					self:AddReward(WQT_REWARDTYPE.conduit, ilvl, texture, quality, WQT_Utils:GetColor(_V["COLOR_IDS"].rewardRelic), rewardId, false, subType);
+					self:AddReward(WQT_REWARDTYPE.conduit, ilvl, texture, quality, WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].rewardRelic), rewardId, false, subType);
 				elseif (typeID == 4 or typeID == 2) then 
 					-- Gear (4 = armor, 2 = weapon)
-					local canUpgrade = ScanTooltipRewardForPattern(self.questId, "(%d+%+)$") and true or false;
+					local canUpgrade = ScanTooltipRewardForPattern(self.questID, "(%d+%+)$") and true or false;
 					local rewardType = typeID == 4 and WQT_REWARDTYPE.equipment or WQT_REWARDTYPE.weapon;
-					local color = typeID == 4 and WQT_Utils:GetColor(_V["COLOR_IDS"].rewardArmor) or WQT_Utils:GetColor(_V["COLOR_IDS"].rewardWeapon);
+					local color = typeID == 4 and WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].rewardArmor) or WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].rewardWeapon);
 					self:AddReward(rewardType, ilvl, texture, quality, color, rewardId, canUpgrade);
 				elseif (typeID == 3 and subTypeID == 11) then
 					-- Relics
 					-- Find upgrade amount as C_ArtifactUI.GetItemLevelIncreaseProvidedByRelic doesn't scale
-					local numItems = tonumber(ScanTooltipRewardForPattern(self.questId, "^%+(%d+)"));
-					self:AddReward(WQT_REWARDTYPE.relic, numItems, texture, quality,WQT_Utils:GetColor(_V["COLOR_IDS"].rewardRelic), rewardId);
+					local numItems = tonumber(ScanTooltipRewardForPattern(self.questID, "^%+(%d+)"));
+					self:AddReward(WQT_REWARDTYPE.relic, numItems, texture, quality,WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].rewardRelic), rewardId);
 				elseif(C_Item.IsAnimaItemByID(rewardId)) then
 					-- Anima
-					local value = ScanTooltipRewardForPattern(self.questId, " (%d+) ") or 1;
+					local value = ScanTooltipRewardForPattern(self.questID, " (%d+) ") or 1;
 					value = tonumber(value);
 
-					if (WQT.settings.general.sl_genericAnimaIcons) then
+					if (WorldQuestTab.settings.general.sl_genericAnimaIcons) then
 						texture = 3528288;
 						if (value >= 250) then
 							texture = 3528287;
 						end
 					end
-					self:AddReward(WQT_REWARDTYPE.anima, numItems * value, texture, quality, WQT_Utils:GetColor(_V["COLOR_IDS"].rewardAnima), rewardId);
+					self:AddReward(WQT_REWARDTYPE.anima, numItems * value, texture, quality, WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].rewardAnima), rewardId);
 				else	
 					-- Normal items
 					if (texture == 894556) then
 						-- Bonus player xp item is counted as actual xp
-						self:AddReward(WQT_REWARDTYPE.xp, ilvl, texture, quality, WQT_Utils:GetColor(_V["COLOR_IDS"].rewardItem), rewardId);
+						self:AddReward(WQT_REWARDTYPE.xp, ilvl, texture, quality, WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].rewardItem), rewardId);
 					elseif (typeID == 0 and subTypeID == 8 and price == 0 and ilvl > 100) then 
 						-- Item converting into equipment
-						self:AddReward(WQT_REWARDTYPE.equipment, ilvl, texture, quality, WQT_Utils:GetColor(_V["COLOR_IDS"].rewardArmor), rewardId);
-					else 
-						self:AddReward(WQT_REWARDTYPE.item, numItems, texture, quality, WQT_Utils:GetColor(_V["COLOR_IDS"].rewardItem), rewardId);
+						self:AddReward(WQT_REWARDTYPE.equipment, ilvl, texture, quality, WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].rewardArmor), rewardId);
+					elseif (rewardId == 199192 or rewardId == 204359 or rewardId == 205226 or rewardId == 210549) and WorldQuestTab.settings.general.df_goldPurses then
+						--Treat dragon racer's purse rewards as gold.
+						self:AddReward(WQT_REWARDTYPE.gold, 525*100*100, 133784, 1, WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].rewardGold));
+					else
+						self:AddReward(WQT_REWARDTYPE.item, numItems, texture, quality, WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].rewardItem), rewardId);
 					end
 				end
 			end
 		end
+		
 		-- Spells
-		if (GetQuestLogRewardSpell(1, self.questId)) then
-			local texture, _, _, _, _, _, _, _, rewardId = GetQuestLogRewardSpell(1, self.questId);
-			self:AddReward(WQT_REWARDTYPE.spell, 1, texture, 1, WQT_Utils:GetColor(_V["COLOR_IDS"].rewardItem), rewardId);
-		end
-		-- Honor
-		if (GetQuestLogRewardHonor(self.questId) > 0) then
-			local numItems = GetQuestLogRewardHonor(self.questId);
-			self:AddReward(WQT_REWARDTYPE.honor, numItems, 1455894, 1, WQT_Utils:GetColor(_V["COLOR_IDS"].rewardHonor));
-		end
-		-- Gold
-		if (GetQuestLogRewardMoney(self.questId) > 0) then
-			local numItems = floor(abs(GetQuestLogRewardMoney(self.questId)))
-			self:AddReward(WQT_REWARDTYPE.gold, numItems, 133784, 1, WQT_Utils:GetColor(_V["COLOR_IDS"].rewardGold));
-		end
-		-- Currency
-		local numCurrencies = GetNumQuestLogRewardCurrencies(self.questId);
-		for i=1, numCurrencies do
-			local _, _, amount, currencyId = GetQuestLogRewardCurrencyInfo(i, self.questId);
-			if (currencyId) then
-				local currencyInfo = C_CurrencyInfo.GetCurrencyInfo(currencyId);
-				local isRep = C_CurrencyInfo.GetFactionGrantedByCurrency(currencyId) ~= nil;
-				local name, texture, _, quality = CurrencyContainerUtil.GetCurrencyContainerInfo(currencyId, amount, currencyInfo.name, currencyInfo.iconFileID, currencyInfo.quality); 
-				local currType = currencyId == _azuriteID and WQT_REWARDTYPE.artifact or (isRep and WQT_REWARDTYPE.reputation or WQT_REWARDTYPE.currency);
-				local color = currType == WQT_REWARDTYPE.artifact and WQT_Utils:GetColor(_V["COLOR_IDS"].rewardArtiface) or  WQT_Utils:GetColor(_V["COLOR_IDS"].rewardCurrency);
-				self:AddReward(currType, amount, texture, quality, color, currencyId);
+		if (C_QuestInfoSystem.HasQuestRewardSpells(self.questID)) then	
+			local spellRewards = C_QuestInfoSystem.GetQuestRewardSpells(self.questID);
+			for _, spellID in ipairs(spellRewards) do
+				local spellInfo = C_QuestInfoSystem.GetQuestRewardSpellInfo(self.questID, spellID);
+				local knownSpell = IsSpellKnownOrOverridesKnown(spellID);
+				-- only allow the spell reward if user can learn it
+				if spellInfo and spellInfo.texture and not knownSpell and (not spellInfo.isBoostSpell or IsCharacterNewlyBoosted()) and (not spellInfo.garrFollowerID or not C_Garrison.IsFollowerCollected(spellInfo.garrFollowerID)) then
+					self:AddReward(WQT_REWARDTYPE.spell, 1, spellInfo.texture, 1, WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].rewardItem), spellInfo.spellID);
+				end
 			end
 		end
-		-- Player experience 
-		if (GetQuestLogRewardXP(self.questId) > 0) then
-			local numItems = GetQuestLogRewardXP(self.questId);
-			self:AddReward(WQT_REWARDTYPE.xp, numItems, 894556, 1, WQT_Utils:GetColor(_V["COLOR_IDS"].rewardXp));
+		
+		-- Honor
+		if (GetQuestLogRewardHonor(self.questID) > 0) then
+			local numItems = GetQuestLogRewardHonor(self.questID);
+			self:AddReward(WQT_REWARDTYPE.honor, numItems, 1455894, 1, WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].rewardHonor));
 		end
 		
+		-- Gold
+		if (GetQuestLogRewardMoney(self.questID) > 0) then
+			local numItems = floor(abs(GetQuestLogRewardMoney(self.questID)))
+			self:AddReward(WQT_REWARDTYPE.gold, numItems, 133784, 1, WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].rewardGold));
+		end
+		
+		-- Currency
+		local questRewardCurrencyInfo = C_QuestLog.GetQuestRewardCurrencies(self.questID);
+		for i, currencyInfo in pairs(questRewardCurrencyInfo) do
+			if currencyInfo then
+				local currencyID = currencyInfo.currencyID;
+				local isRep = C_CurrencyInfo.GetFactionGrantedByCurrency(currencyID) ~= nil;
+				local name, texture, amount, quality = CurrencyContainerUtil.GetCurrencyContainerInfo(currencyInfo.currencyID, currencyInfo.totalRewardAmount, currencyInfo.name, currencyInfo.texture, currencyInfo.quality);
+				local currType = currencyID == _azuriteID and WQT_REWARDTYPE.artifact or (isRep and WQT_REWARDTYPE.reputation or WQT_REWARDTYPE.currency);
+				local color = currType == WQT_REWARDTYPE.artifact and WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].rewardArtiface) or  WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].rewardCurrency);
+				self:AddReward(currType, currencyInfo.totalRewardAmount, texture, quality, color, currencyID);
+				
+				local isCurrencyContainer = C_CurrencyInfo.IsCurrencyContainer(currencyInfo.currencyID, currencyInfo.totalRewardAmount);
+				if isCurrencyContainer then
+					self.hasWarbandBonus = IsRewardWarbandBonus(currencyInfo);
+				end
+			end
+		end
+		
+		if C_QuestLog.QuestContainsFirstTimeRepBonusForPlayer(self.questID) and not self.hasWarbandBonus then
+			self.hasWarbandBonus = true;
+		end
+		
+		-- Player experience 
+		if (GetQuestLogRewardXP(self.questID) > 0) then
+			local numItems = GetQuestLogRewardXP(self.questID);
+			self:AddReward(WQT_REWARDTYPE.xp, numItems, 894556, 1, WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].rewardXp));
+		end
 		self:ParseRewards();
 	end
-
 	self.hasRewardData = haveData;
 end
 
@@ -329,13 +367,18 @@ function QuestInfoMixin:GetReward(index)
 end
 
 function QuestInfoMixin:IsExpired()
-	local timeLeftSeconds =  C_TaskQuest.GetQuestTimeLeftSeconds(self.questId) or 0;
+	local timeLeftSeconds =  C_TaskQuest.GetQuestTimeLeftSeconds(self.questID) or 0;
+	if self:IsBonusObjective() then
+		-- C_TaskQuest.GetQuestTimeLeftSeconds returns 0 if it is a bonus world quest so this always fails
+		-- Hardcode the value so next line returns true
+		timeLeftSeconds = 2;
+	end
 	return self.time.seconds and self.time.seconds > 0 and timeLeftSeconds < 1;
 end
 
 function QuestInfoMixin:SetAsWaypoint()
-	local mapInfo = WQT_Utils:GetMapInfoForQuest(self.questId);
-	local x, y = WQT_Utils:GetQuestMapLocation(self.questId, mapInfo.mapID);
+	local mapInfo = WQT_Utils:GetMapInfoForQuest(self.questID);
+	local x, y = WQT_Utils:GetQuestMapLocation(self.questID, mapInfo.mapID);
 	local wayPoint = UiMapPoint.CreateFromCoordinates(mapInfo.mapID, x, y);
 	C_Map.SetUserWaypoint(wayPoint);
 end
@@ -382,8 +425,7 @@ end
 
 function QuestInfoMixin:GetRewardTexture()
 	if (self.reward.typeBits == WQT_REWARDTYPE.none) then
-		-- Dark empty texture
-		return "Interface/Garrison/GarrisonMissionUIInfoBoxBackgroundTile";
+		return 134400;
 	end
 
 	local reward = self.rewardList[1];
@@ -397,10 +439,10 @@ end
 
 function QuestInfoMixin:GetRewardColor()
 	if (self.reward.typeBits == WQT_REWARDTYPE.none) then
-		return WQT_Utils:GetColor(_V["COLOR_IDS"].rewardNone);
+		return WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].rewardNone);
 	end
 	local reward = self.rewardList[1];
-	return reward and reward.color or WQT_Utils:GetColor(_V["COLOR_IDS"].rewardMissing);
+	return reward and reward.color or WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].rewardMissing);
 end
 
 function QuestInfoMixin:GetRewardCanUpgrade()
@@ -409,18 +451,16 @@ function QuestInfoMixin:GetRewardCanUpgrade()
 end
 
 function QuestInfoMixin:IsCriteria(forceSingle)
-	local bountyBoard = WorldMapFrame.overlayFrames[_V["WQT_BOUNDYBOARD_OVERLAYID"]];
+	local bountyBoard = WorldMapFrame.overlayFrames[WorldQuestTab.Variables["WQT_BOUNTYBOARD_OVERLAYID"]];
 	if (not bountyBoard) then return false; end
 	
-	-- Try only selected
 	if (forceSingle) then
-		return bountyBoard:IsWorldQuestCriteriaForSelectedBounty(self.questId);
+		return bountyBoard:IsWorldQuestCriteriaForSelectedBounty(self.questID);
 	end
 	
-	-- Try any of them
 	if (bountyBoard.bounties) then
 		for k, bounty in ipairs(bountyBoard.bounties) do
-			if (C_QuestLog.IsQuestCriteriaForBounty(self.questId, bounty.questID)) then
+			if (C_QuestLog.IsQuestCriteriaForBounty(self.questID, bounty.questID)) then
 				return true;
 			end
 		end
@@ -430,7 +470,7 @@ function QuestInfoMixin:IsCriteria(forceSingle)
 end
 
 function QuestInfoMixin:GetTitle()
-	local title = C_TaskQuest.GetQuestInfoByQuestID(self.questId);
+	local title = C_TaskQuest.GetQuestInfoByQuestID(self.questID);
 	return title;
 end
 
@@ -439,11 +479,11 @@ function QuestInfoMixin:GetTagInfo()
 end
 
 function QuestInfoMixin:IsDisliked()
-	return WQT_Utils:QuestIsDisliked(self.questId);
+	return WQT_Utils:QuestIsDisliked(self.questID);
 end
 
 function QuestInfoMixin:DataIsValid()
-	return self.questId ~= nil;
+	return self.questID ~= nil;
 end
 
 function QuestInfoMixin:IsSpecialType()
@@ -452,6 +492,14 @@ end
 
 function QuestInfoMixin:IsQuestOfType(questType)
 	return bit.band(self.typeBits, questType) > 0;
+end
+
+function QuestInfoMixin:HasWarbandBonus()
+	return self.hasWarbandBonus;
+end
+
+function QuestInfoMixin:IsBonusObjective()
+	return self.typeBits and self:IsQuestOfType(WQT_QUESTTYPE.bonus);
 end
 
 ----------------------------
@@ -478,12 +526,15 @@ function WQT_DataProvider:Init()
 	self.waitingRoomRewards = {};
 	
 	self.bufferedZones = {};
-	hooksecurefunc(WorldMapFrame, "OnMapChanged", function() 
-			-- If we change map, reset the CD, we want new quest info
-			self:LoadQuestsInZone(WorldMapFrame.mapID);
+	-- hooksecurefunc(WorldMapFrame, "OnMapChanged", function() 
+			-- -- If we change map, reset the CD, we want new quest info
+			-- self:LoadQuestsInZone(WorldMapFrame.mapID);
+		-- end);
+	EventRegistry:RegisterCallback("MapCanvas.MapSet", function(_,mapID) 
+			-- Now we do it modern way.
+			self:LoadQuestsInZone(mapID);
 		end);
-
-	UpdateAzerothZones(); 
+	UpdateAzerothZones();
 	
 	self.updateCD = 0;
 end
@@ -499,7 +550,7 @@ function WQT_DataProvider:OnEvent(event, ...)
 			
 	elseif (event == "PLAYER_LEVEL_UP") then
 		local level = ...;
-		UpdateAzerothZones(level); 
+		UpdateAzerothZones(level);
 	end
 end
 
@@ -549,7 +600,7 @@ function WQT_DataProvider:UpdateWaitingRoom()
 
 	for i = #self.waitingRoomRewards, 1, -1 do
 		questInfo = self.waitingRoomRewards[i];
-		if ( questInfo.questId and HaveQuestRewardData(questInfo.questId)) then
+		if ( questInfo.questID and HaveQuestRewardData(questInfo.questID)) then
 			questInfo:LoadRewards(true);
 			table.remove(self.waitingRoomRewards, i);
 			updatedData = true;
@@ -573,7 +624,7 @@ function WQT_DataProvider:AddWorldMapQuests(worldContinents)
 	if worldContinents then
 		for contID in pairs(worldContinents) do
 			-- Every ID is a continent, get every zone on every continent
-			local continentZones = _V["WQT_ZONE_MAPCOORDS"][contID];
+			local continentZones = WorldQuestTab.Variables["WQT_ZONE_MAPCOORDS"][contID];
 			self:AddContinentMapQuests(continentZones, contID)
 		end
 	end
@@ -583,7 +634,7 @@ function WQT_DataProvider:AddZoneToBuffer(zoneID)
 	tinsert(self.bufferedZones, zoneID);
 	
 	-- Check for subzones and add those as well
-	local subZones = _V["ZONE_SUBZONES"][zoneID];
+	local subZones = WorldQuestTab.Variables["ZONE_SUBZONES"][zoneID];
 	if (subZones) then
 		for k, subID in ipairs(subZones) do
 			tinsert(self.bufferedZones, subID);
@@ -602,7 +653,7 @@ function WQT_DataProvider:LoadQuestsInZone(zoneID)
 	self.latestZoneId = zoneID
 	-- If the flight map is open, we want all quests no matter what
 	if ((FlightMapFrame and FlightMapFrame:IsShown()) ) then 
-		local taxiId = GetTaxiMapID()
+		local taxiId = FlightMapFrame and FlightMapFrame:GetMapID() or GetTaxiMapID()
 		zoneID = (taxiId and taxiId > 0) and taxiId or zoneID;
 		-- World Flight Map add-on overwrite
 		if (_WFMLoaded) then
@@ -612,22 +663,22 @@ function WQT_DataProvider:LoadQuestsInZone(zoneID)
 	
 	local currentMapInfo = WQT_Utils:GetCachedMapInfo(zoneID);
 	if not currentMapInfo then return end;
-	if (WQT.settings.list.alwaysAllQuests ) then
-		local expLevel = _V["WQT_ZONE_EXPANSIONS"][zoneID];
+	if (WorldQuestTab.settings.list.alwaysAllQuests ) then
+		local expLevel = WorldQuestTab.Variables["WQT_ZONE_EXPANSIONS"][zoneID];
 		if (not expLevel or expLevel == 0) then
 			expLevel = GetAccountExpansionLevel();
 		end
 		
 		-- Gather quests for all zones either matching current zone's expansion, or matching no expansion (i.e. Stranglethorn fishing quest)
 		local count = 0;
-		for zoneID, expId in pairs(_V["WQT_ZONE_EXPANSIONS"])do
+		for zoneID, expId in pairs(WorldQuestTab.Variables["WQT_ZONE_EXPANSIONS"])do
 			if (expId == 0 or expId == expLevel) then
 				self:AddZoneToBuffer(zoneID);
 			end
 			count = count + 1;
 		end
 	else
-		local continentZones = _V["WQT_ZONE_MAPCOORDS"][zoneID];
+		local continentZones = WorldQuestTab.Variables["WQT_ZONE_MAPCOORDS"][zoneID];
 		if (currentMapInfo.mapType == Enum.UIMapType.World) then
 			self:AddWorldMapQuests(continentZones);
 		elseif (continentZones) then -- Zone with multiple subzones
@@ -664,15 +715,15 @@ end
 
 function WQT_DataProvider:AddQuest(qInfo)
 	-- Setting to filter daily world quests
-	if (not WQT.settings.list.includeDaily and qInfo.isDaily) then
+	if (not WorldQuestTab.settings.list.includeDaily and qInfo.isDaily) then
 		return true;
 	end
 
-	local duplicate = self:FindDuplicate(qInfo.questId);
+	local duplicate = self:FindDuplicate(qInfo.questID);
 	-- If there is a duplicate, we don't want to go through all the info again
 	if (duplicate) then
 		-- Check if the new zone is the 'official' zone, if so, use that one instead
-		if (qInfo.mapID == C_TaskQuest.GetQuestZoneID(qInfo.questId) ) then
+		if (qInfo.mapID == C_TaskQuest.GetQuestZoneID(qInfo.questID) ) then
 			duplicate:SetMapPos(qInfo.x, qInfo.y);
 		end
 		
@@ -680,14 +731,27 @@ function WQT_DataProvider:AddQuest(qInfo)
 	end
 	
 	local questInfo = self.pool:Acquire();
+
+	-- MapUtil.ShouldShowTask always returns false if the quest is in progress.
+	-- This hides the current quest and some other stuff
 	local alwaysHide = not MapUtil.ShouldShowTask(qInfo.mapID, qInfo);
-	local posX, posY = WQT_Utils:GetQuestMapLocation(qInfo.questId, qInfo.mapID);
-	local haveRewardData = questInfo:Init(qInfo.questId, qInfo.isDaily, qInfo.isCombatAllyQuest, alwaysHide, posX, posY);
+
+	-- If the world quest is in progress do not hide it.
+	if qInfo.isQuestStart and qInfo.inProgress then
+		alwaysHide = false;
+	end
+
+	-- Dragonflight devs forgot to flagged some tech quests with "MapUtil.ShouldShowTask", and past it in Vol'dun location.
+	-- It make Vol'dun's map messy. This should fix it.
+	if (qInfo.questID > 60000) and (qInfo.mapID == 864) then alwaysHide = true; end
+
+	local posX, posY = WQT_Utils:GetQuestMapLocation(qInfo.questID, qInfo.mapID);
+	local haveRewardData = questInfo:Init(qInfo.questID, qInfo.isDaily, qInfo.isCombatAllyQuest, alwaysHide, posX, posY);
 
 	-- If we have no data for the quest, don't include them in the waiting room, they are probably messed up
 	-- Worst case we do get their data at a later point, it will cause everything to refresh anyway
-	if (not haveRewardData and HaveQuestData(qInfo.questId)) then
-		C_TaskQuest.RequestPreloadRewardData(qInfo.questId);
+	if (not haveRewardData and HaveQuestData(qInfo.questID)) then
+		C_TaskQuest.RequestPreloadRewardData(qInfo.questID);
 		tinsert(self.waitingRoomRewards, questInfo);
 		return false;
 	end;
@@ -695,9 +759,9 @@ function WQT_DataProvider:AddQuest(qInfo)
 	return true;
 end
 
-function WQT_DataProvider:FindDuplicate(questId)
+function WQT_DataProvider:FindDuplicate(questID)
 	for questInfo, v in self.pool:EnumerateActive() do
-		if (questInfo.questId == questId) then
+		if (questInfo.questID == questID) then
 			return questInfo;
 		end
 	end
@@ -721,7 +785,7 @@ function WQT_DataProvider:GetKeyList()
 	end
 	
 	for questInfo, v in self.pool:EnumerateActive() do
-		self.keyList[questInfo.questId] = questInfo;
+		self.keyList[questInfo.questID] = questInfo;
 	end
 	
 	return self.keyList;
@@ -729,14 +793,14 @@ end
 
 function WQT_DataProvider:GetQuestById(id)
 	for questInfo in self.pool:EnumerateActive() do
-		if questInfo.questId == id then return questInfo; end
+		if questInfo.questID == id then return questInfo; end
 	end
 	return nil;
 end
 
 function WQT_DataProvider:ListContainsEmissary()
 	for questInfo, v in self.pool:EnumerateActive() do
-		if (questInfo:IsCriteria(WQT.settings.general.bountySelectedOnly)) then return true; end
+		if (questInfo:IsCriteria(WorldQuestTab.settings.general.bountySelectedOnly)) then return true; end
 	end
 	return false
 end

@@ -1,10 +1,5 @@
-﻿local addonName, addon = ...
-local WQT = addon.WQT;
-local _L = addon.L
-local _V = addon.variables;
-local WQT_Utils = addon.WQT_Utils;
-local WQT_Profiles = addon.WQT_Profiles;
-local ADD = LibStub("AddonDropDown-2.0");
+﻿WorldQuestTab = LibStub("AceAddon-3.0"):GetAddon("WorldQuestTab")
+local L = LibStub("AceLocale-3.0"):GetLocale("WorldQuestTab")
 
 --------------------------------
 -- WQT_MiniIconMixin
@@ -102,7 +97,7 @@ end
 function WQT_MiniIconMixin:SetupRewardIcon(rewardType, subType)
 	self:Reset();
 	
-	local rewardTypeAtlas = WQT_Utils:GetRewardIconInfo(rewardType, subType);
+	local rewardTypeAtlas = WorldQuestTab.WQT_Utils:GetRewardIconInfo(rewardType, subType);
 	
 	if not (rewardTypeAtlas) then
 		return;
@@ -150,50 +145,6 @@ function WQT_MiniIconMixin:Update()
 	self.Icon:SetVertexColor(r, g, b);
 end
 
---------------------------------
--- WQT_ScrollFrameMixin
---------------------------------
-
-WQT_ScrollFrameMixin = {};
-
-function WQT_ScrollFrameMixin:OnLoad()
-	self.offset = 0;
-	self.scrollStep = 30;
-	self.max = 0;
-	self.ScrollBar:SetMinMaxValues(0, 0);
-	self.ScrollBar:SetValue(0);
-	self.ScrollChild:SetPoint("RIGHT", self)
-end
-
-function WQT_ScrollFrameMixin:OnShow()
-	self:SetChildHeight(self.ScrollChild:GetHeight());
-end
-
-function WQT_ScrollFrameMixin:UpdateChildFramePosition()
-	if (self.ScrollChild) then
-		self.ScrollChild:SetPoint("TOPLEFT", self, 0, self.offset);
-	end
-end
-
-function WQT_ScrollFrameMixin:ScrollValueChanged(value)
-	self.offset = max(0, min(value, self.max));
-	self:UpdateChildFramePosition();
-end
-
-function WQT_ScrollFrameMixin:OnMouseWheel(delta)
-	self.offset = self.offset - delta * self.scrollStep;
-	self.offset = max(0, min(self.offset, self.max));
-	self:UpdateChildFramePosition();
-	self.ScrollBar:SetValue(self.offset);
-end
-
-function WQT_ScrollFrameMixin:SetChildHeight(height)
-	self.ScrollChild:SetHeight(height);
-	self.max = max(0, height - self:GetHeight());
-	self.offset = min(self.offset, self.max);
-	self.ScrollBar:SetMinMaxValues(0, self.max);
-end
-
 ----------------------------
 -- Containers
 ----------------------------
@@ -204,17 +155,21 @@ function WQT_ContainerButtonMixin:OnClick()
 	self:SetSelected(not self.isSelected);
 end
 
+function WQT_ContainerButtonMixin:OnShow()
+	self.Glow:SetShown(false);
+end
+
 function WQT_ContainerButtonMixin:SetSelected(isSelected)
 	self.isSelected = isSelected;	
 	if (self.container) then
 		if (self.isSelected) then
 			self.container:Show();
-			self.Selected:SetAlpha(0.5);
-			WQT_WorldQuestFrame:SelectTab(WQT_TabWorld);
+			self.Glow:SetShown(true);
+			WQT_WorldQuestFrame:SelectTab(QuestLogDisplayMode.WorldQuests);
 		else
 			self.container:Hide();
-			self.Selected:SetAlpha(0);
-			WQT_WorldQuestFrame:SelectTab(WQT_TabNormal);
+			self.Glow:SetShown(false);
+			WQT_WorldQuestFrame:SelectTab(QuestLogDisplayMode.Quests);
 		end
 	end
 end
@@ -227,6 +182,22 @@ end
 
 function WQT_ContainerButtonMixin:OnLeave()
 	GameTooltip:Hide();
+end
+
+function WQT_ContainerButtonMixin:OnMouseDown(button)
+	if self:IsEnabled() then
+		if self.IconOverlay ~= nil then
+			self.Icon:SetPoint("TOPLEFT", 8, -8);
+			self.IconOverlay:Show();
+		end
+	end
+end
+
+function WQT_ContainerButtonMixin:OnMouseUp()
+	if self.IconOverlay ~= nil then
+		self.Icon:SetPoint("TOPLEFT", self, "TOPLEFT", 7, -6);
+		self.IconOverlay:Hide();
+	end
 end
 
 ----------------------------
@@ -285,8 +256,8 @@ end
 local cachedTypeData = {};
 local cachedZoneInfo = {};
 
-function WQT_Utils:GetSetting(...)
-	local settings =  WQT.settings;
+function WorldQuestTab.WQT_Utils:GetSetting(...)
+	local settings =  WorldQuestTab.settings;
 	local index = 1;
 	local param = select(index, ...);
 	
@@ -306,12 +277,12 @@ function WQT_Utils:GetSetting(...)
 	return settings;
 end
 
-function WQT_Utils:GetLocal(key)
-	return _L[key or ""];
+function WorldQuestTab.WQT_Utils:GetLocal(key)
+	return L[key or ""];
 end
 
-function WQT_Utils:GetVariable(key)
-	local val = _V[key or ""];
+function WorldQuestTab.WQT_Utils:GetVariable(key)
+	local val = WorldQuestTab.Variables[key or ""];
 	
 	if (not val) then return; end
 	
@@ -322,7 +293,7 @@ function WQT_Utils:GetVariable(key)
 	return val;
 end
 
-function WQT_Utils:GetCachedMapInfo(zoneId)
+function WorldQuestTab.WQT_Utils:GetCachedMapInfo(zoneId)
 	zoneId = zoneId or 0;
 	local zoneInfo = cachedZoneInfo[zoneId];
 	if (not zoneInfo) then
@@ -335,26 +306,25 @@ function WQT_Utils:GetCachedMapInfo(zoneId)
 	return zoneInfo;
 end
 
-function WQT_Utils:GetFactionDataInternal(id)
+function WorldQuestTab.WQT_Utils:GetFactionDataInternal(id)
 	if (not id) then  
 		-- No faction
-		return _V["WQT_NO_FACTION_DATA"];
+		return WorldQuestTab.Variables["WQT_NO_FACTION_DATA"];
 	end;
-	local factionData = _V["WQT_FACTION_DATA"];
+	local factionData = WorldQuestTab.Variables["WQT_FACTION_DATA"];
 
 	if (not factionData[id]) then
 		-- Add new faction in case it's not in our data yet
-		factionData[id] = { ["expansion"] = 0 ,["faction"] = nil ,["texture"] = 1103069, ["unknown"] = true } 
-		factionData[id].name = GetFactionInfoByID(id) or "Unknown Faction";
-		WQT:debugPrint("Added new faction", id,factionData[id].name);
+		factionData[id] = { ["expansion"] = 0 ,["faction"] = nil ,["texture"] = 134400, ["unknown"] = true } 
+		factionData[id].name = C_Reputation.GetFactionDataByID(id) or UNKNOWN;
 	end
 	
 	return factionData[id];
 end
 
-function WQT_Utils:GetCachedTypeIconData(questInfo, pinVersion)
+function WorldQuestTab.WQT_Utils:GetCachedTypeIconData(questInfo, pinVersion)
 	
-	if (C_QuestLog.IsQuestCalling(questInfo.questId)) then
+	if (C_QuestLog.IsQuestCalling(questInfo.questID)) then
 		if (pinVersion) then
 			return "QuestDaily", 17, 17, true;
 		else
@@ -365,8 +335,8 @@ function WQT_Utils:GetCachedTypeIconData(questInfo, pinVersion)
 		return "QuestDaily", 17, 17, true;
 	elseif (questInfo.isQuestStart) then
 		return "QuestNormal", 17, 17, true;
-	elseif (C_QuestLog.IsThreatQuest(questInfo.questId)) then
-		local themeInfo = C_QuestLog.GetQuestDetailsTheme(questInfo.questId);
+	elseif (C_QuestLog.IsThreatQuest(questInfo.questID)) then
+		local themeInfo = C_QuestLog.GetQuestDetailsTheme(questInfo.questID);
 		local atlas = themeInfo and themeInfo.poiIcon or "worldquest-icon-nzoth";
 		return atlas, 16, 16, true;
 	end
@@ -374,12 +344,12 @@ function WQT_Utils:GetCachedTypeIconData(questInfo, pinVersion)
 	local tagInfo = questInfo:GetTagInfo();
 	-- If there is no tag info, it's a bonus objective
 	if (not tagInfo) then
-		return "QuestBonusObjective", 21, 21, true;
+		return "QuestBonusObjective", 28, 28, true;
 	end
 	
 	local isNew = false;
 	local originalType = tagInfo.worldQuestType;
-	tagInfo.worldQuestType = tagInfo.worldQuestType or _V["WQT_TYPE_BONUSOBJECTIVE"];
+	tagInfo.worldQuestType = tagInfo.worldQuestType or WorldQuestTab.Variables["WQT_TYPE_BONUSOBJECTIVE"];
 	local cachedData = cachedTypeData[tagInfo.worldQuestType];
 	if (not cachedData) then 
 		-- creating basetype
@@ -400,7 +370,7 @@ function WQT_Utils:GetCachedTypeIconData(questInfo, pinVersion)
 	end
 	
 	if (isNew) then
-		local atlasTexture, sizeX, sizeY  = QuestUtil.GetWorldQuestAtlasInfo(originalType, false, tagInfo.tradeskillLineID);
+		local atlasTexture, sizeX, sizeY  = QuestUtil.GetWorldQuestAtlasInfo(originalType, tagInfo, false);
 		cachedData.texture = atlasTexture;
 		cachedData.x = sizeX;
 		cachedData.y = sizeY;
@@ -409,48 +379,79 @@ function WQT_Utils:GetCachedTypeIconData(questInfo, pinVersion)
 	return cachedData.texture or "", cachedData.x or 0, cachedData.y or 0;
 end
 
-function WQT_Utils:GetQuestTimeString(questInfo, fullString, unabreviated)
+function WorldQuestTab.WQT_Utils:GetQuestTimeString(questInfo, fullString, unabreviated)
 	local timeLeftMinutes = 0
 	local timeLeftSeconds = 0
 	local timeString = "";
 	local timeStringShort = "";
-	local color = _V["WQT_COLOR_CURRENCY"];
-	local category = _V["TIME_REMAINING_CATEGORY"].none;
+	local color = WorldQuestTab.Variables["WQT_COLOR_CURRENCY"];
+	local category = WorldQuestTab.Variables["TIME_REMAINING_CATEGORY"].none;
 	
-	if (not questInfo or not questInfo.questId) then return timeLeftSeconds, timeString, color ,timeStringShort, timeLeftMinutes, category end
+	if (not questInfo or not questInfo.questID) then return timeLeftSeconds, timeString, color ,timeStringShort, timeLeftMinutes, category end
 	
 	-- Time ran out, waiting for an update
 	if (questInfo:IsExpired()) then
 		timeString = RAID_INSTANCE_EXPIRES_EXPIRED;
 		timeStringShort = "Exp."
 		color = GRAY_FONT_COLOR;
-		return 0, timeString, color,timeStringShort , 0, _V["TIME_REMAINING_CATEGORY"].expired;
+		return 0, timeString, color,timeStringShort , 0, WorldQuestTab.Variables["TIME_REMAINING_CATEGORY"].expired;
 	end
 	
-	timeLeftMinutes = C_TaskQuest.GetQuestTimeLeftMinutes(questInfo.questId) or 0;
-	timeLeftSeconds =  C_TaskQuest.GetQuestTimeLeftSeconds(questInfo.questId) or 0;
-	if ( timeLeftSeconds  and timeLeftSeconds > 0) then
+	timeLeftMinutes = C_TaskQuest.GetQuestTimeLeftMinutes(questInfo.questID) or 0;
+	timeLeftSeconds =  C_TaskQuest.GetQuestTimeLeftSeconds(questInfo.questID) or 0;
+
+	local isBonus = questInfo:IsBonusObjective();
+	local widgetText = nil;
+	-- Bonus world quest have their time on a widget
+	if isBonus then
+		local widgetSetID = C_TaskQuest.GetQuestTooltipUIWidgetSet(questInfo.questID);
+		if widgetSetID then
+			local widgets = C_UIWidgetManager.GetAllWidgetsBySetID(widgetSetID);
+			for k,v in pairs(widgets) do
+				local widgetInfo = C_UIWidgetManager.GetTextWithStateWidgetVisualizationInfo(v.widgetID)
+				if widgetInfo and widgetInfo.text then
+					widgetText = widgetInfo.text;
+					-- Get numbers between spaces, not sure about all of this..
+					local m1, m2 = string.match(widgetInfo.text, " (%d+) .+ (%d+) ");
+					if not tonumber(m2) then -- Only seconds
+						m1 = string.match(widgetInfo.text, "(%d+)");
+						timeLeftMinutes = 0;
+						timeLeftSeconds = tonumber(m1) or 0;
+					elseif tonumber(m1) and tonumber(m2) then -- Minutes and seconds
+						timeLeftMinutes = tonumber(m1) or 0;
+						timeLeftSeconds = tonumber(m2) + (timeLeftMinutes * 60);
+					else -- If it fails...
+						timeLeftMinutes = 0;
+						timeLeftSeconds = 0;
+					end
+					break;
+				end
+			end
+		end
+	end
+	
+	if timeLeftSeconds and timeLeftSeconds > 0 then
 		local displayTime = timeLeftSeconds
 		if (displayTime < SECONDS_PER_HOUR  and displayTime >= SECONDS_PER_MIN ) then
 			displayTime = displayTime + SECONDS_PER_MIN ;
 		end
 	
 		if ( timeLeftSeconds < WORLD_QUESTS_TIME_CRITICAL_MINUTES * SECONDS_PER_MIN  ) then
-			color = WQT_Utils:GetColor(_V["COLOR_IDS"].timeCritical);--RED_FONT_COLOR;
+			color = WorldQuestTab.WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].timeCritical);--RED_FONT_COLOR;
 			timeString = SecondsToTime(displayTime, displayTime > SECONDS_PER_MIN  and true or false, unabreviated);
-			category = _V["TIME_REMAINING_CATEGORY"].critical;
+			category = WorldQuestTab.Variables["TIME_REMAINING_CATEGORY"].critical;
 		elseif displayTime < SECONDS_PER_HOUR   then
 			timeString = SecondsToTime(displayTime, true);
-			color = WQT_Utils:GetColor(_V["COLOR_IDS"].timeShort);--_V["WQT_ORANGE_FONT_COLOR"];
-			category = _V["TIME_REMAINING_CATEGORY"].short
+			color = WorldQuestTab.WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].timeShort);--WorldQuestTab.Variables["WQT_ORANGE_FONT_COLOR"];
+			category = WorldQuestTab.Variables["TIME_REMAINING_CATEGORY"].short
 		elseif displayTime < SECONDS_PER_DAY   then
 			if (fullString) then
 				timeString = SecondsToTime(displayTime, true, unabreviated);
 			else
 				timeString = D_HOURS:format(displayTime / SECONDS_PER_HOUR);
 			end
-			color = WQT_Utils:GetColor(_V["COLOR_IDS"].timeMedium);--_V["WQT_GREEN_FONT_COLOR"];
-			category = _V["TIME_REMAINING_CATEGORY"].medium;
+			color = WorldQuestTab.WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].timeMedium);--WorldQuestTab.Variables["WQT_GREEN_FONT_COLOR"];
+			category = WorldQuestTab.Variables["TIME_REMAINING_CATEGORY"].medium;
 		else
 			if (fullString) then
 				timeString = SecondsToTime(displayTime, true, unabreviated);
@@ -460,13 +461,21 @@ function WQT_Utils:GetQuestTimeString(questInfo, fullString, unabreviated)
 			local tagInfo = questInfo:GetTagInfo();
 			local isWeek = tagInfo and tagInfo.isElite and tagInfo.quality == Enum.WorldQuestQuality.Epic
 			if (isWeek) then
-				color = WQT_Utils:GetColor(_V["COLOR_IDS"].timeVeryLong);
-				category = _V["TIME_REMAINING_CATEGORY"].veryLong;
+				color = WorldQuestTab.WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].timeVeryLong);
+				category = WorldQuestTab.Variables["TIME_REMAINING_CATEGORY"].veryLong;
 			else
-				color = WQT_Utils:GetColor(_V["COLOR_IDS"].timeLong);
-				category = _V["TIME_REMAINING_CATEGORY"].long;
+				color = WorldQuestTab.WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].timeLong);
+				category = WorldQuestTab.Variables["TIME_REMAINING_CATEGORY"].long;
 			end
 		end
+
+		if isBonus then
+			timeString = SecondsToTime(displayTime, false, unabreviated);
+		end
+	end
+
+	if timeLeftSeconds == 0 and widgetText then
+		timeString = widgetText; -- Better than nothing?
 	end
 	-- start with default, for CN and KR
 	timeStringShort = timeString;
@@ -474,12 +483,11 @@ function WQT_Utils:GetQuestTimeString(questInfo, fullString, unabreviated)
 	if t and str then
 		timeStringShort = t..str;
 	end
-	
-	return timeLeftSeconds, timeString, color, timeStringShort ,timeLeftMinutes, category;
+	return timeLeftSeconds, timeString, color, timeStringShort, timeLeftMinutes, category;
 end
 
-function WQT_Utils:GetPinTime(questInfo)
-	local seconds, _, color, timeStringShort, _, category = WQT_Utils:GetQuestTimeString(questInfo);
+function WorldQuestTab.WQT_Utils:GetPinTime(questInfo)
+	local seconds, _, color, timeStringShort, _, category = WorldQuestTab.WQT_Utils:GetQuestTimeString(questInfo);
 	local start = 0;
 	local timeLeft = seconds;
 	local total = 0;
@@ -489,7 +497,7 @@ function WQT_Utils:GetPinTime(questInfo)
 			maxTime = 5760*60;
 			offset = -720*60;
 			local tagInfo = questInfo:GetTagInfo();
-			if (timeLeft > maxTime or (tagInfo.isElite and tagInfo.quality == Enum.WorldQuestQuality.Epic)) then
+			if (timeLeft > maxTime or tagInfo and (tagInfo.isElite and tagInfo.quality == Enum.WorldQuestQuality.Epic)) then
 				maxTime = 1440 * 7*60;
 				offset = 0;
 			end
@@ -511,20 +519,26 @@ function WQT_Utils:GetPinTime(questInfo)
 	return start, total, timeLeft, seconds, color, timeStringShort, category;
 end
 
-function WQT_Utils:GetMapInfoForQuest(questId)
-	local zoneId = C_TaskQuest.GetQuestZoneID(questId);
-	return WQT_Utils:GetCachedMapInfo(zoneId);
+function WorldQuestTab.WQT_Utils:GetMapInfoForQuest(questID)
+	local zoneId = C_TaskQuest.GetQuestZoneID(questID);
+	return WorldQuestTab.WQT_Utils:GetCachedMapInfo(zoneId);
 end
 
-function WQT_Utils:ItterateAllBonusObjectivePins(func)
-	if(WorldMapFrame.pinPools.BonusObjectivePinTemplate) then
-		for mapPin in pairs(WorldMapFrame.pinPools.BonusObjectivePinTemplate.activeObjects) do
-			func(mapPin)
+function WorldQuestTab.WQT_Utils:ItterateAllBonusObjectivePins(func)
+	if WorldMapFrame.pinPools.BonusObjectivePinTemplate then
+		if WorldMapFrame.pinPools then
+			local templates = WorldMapFrame.pinPools["BonusObjectivePinTemplate"]:EnumerateActive();
+			for activePin in templates do
+				func(activePin);
+			end
 		end
 	end
-	if(WorldMapFrame.pinPools.ThreatObjectivePinTemplate) then
-		for mapPin in pairs(WorldMapFrame.pinPools.ThreatObjectivePinTemplate.activeObjects) do
-			func(mapPin)
+	if WorldMapFrame.pinPools.ThreatObjectivePinTemplate then
+		if WorldMapFrame.pinPools then
+			local templates = WorldMapFrame.pinPools["ThreatObjectivePinTemplate"]:EnumerateActive();
+			for activePin in templates do
+				func(activePin);
+			end
 		end
 	end
 end
@@ -552,18 +566,21 @@ local function _AddQuestRewardsToTooltip(tooltip, questID, style)
 	end
 
 	-- currency
+	local mainRewardIsFirstTimeReputationBonus = false;
+	local secondaryRewardsContainFirstTimeRepBonus = false;
 	if not style.atLeastShowAzerite then
-		local numQuestRewards = GetNumQuestLogRewards(questID);
-		local itemToolTip = tooltip.ItemTooltip
-		-- If one of the rewards is an item, don't allow currencies to use the use the item tooltip
-		-- In official code this causes the item to overwrite the currency
-		if (GetNumQuestLogRewards(questID) > 0) then
-			itemToolTip = nil;
-		end
+		local numAddedQuestCurrencies, usingCurrencyContainer, primaryCurrencyRewardInfo = QuestUtils_AddQuestCurrencyRewardsToTooltip(questID, tooltip, tooltip.ItemTooltip);
+		local itemTooltip = tooltip.ItemTooltip
 		
-		local numAddedQuestCurrencies, usingCurrencyContainer = QuestUtils_AddQuestCurrencyRewardsToTooltip(questID, tooltip, itemToolTip);
 		if ( numAddedQuestCurrencies > 0 ) then
 			hasAnySingleLineRewards = not usingCurrencyContainer or numAddedQuestCurrencies > 1;
+		end
+
+		if primaryCurrencyRewardInfo then
+			local isFirstTimeReward = primaryCurrencyRewardInfo.questRewardContextFlags and FlagsUtil.IsSet(primaryCurrencyRewardInfo.questRewardContextFlags, Enum.QuestRewardContextFlags.FirstCompletionBonus);
+			mainRewardIsFirstTimeReputationBonus = isFirstTimeReward and (C_CurrencyInfo.GetFactionGrantedByCurrency(primaryCurrencyRewardInfo.currencyID) ~= nil) or false;
+		elseif C_QuestLog.QuestContainsFirstTimeRepBonusForPlayer(questID) then
+			secondaryRewardsContainFirstTimeRepBonus = true;
 		end
 	end
 	
@@ -577,7 +594,7 @@ local function _AddQuestRewardsToTooltip(tooltip, questID, style)
 	-- money
 	local money = GetQuestLogRewardMoney(questID);
 	if ( money > 0 ) then
-		GameTooltip_AddColoredLine(tooltip, GetMoneyString(money), HIGHLIGHT_FONT_COLOR);
+		SetTooltipMoney(tooltip, money, nil);
 		if (isWarModeDesired and QuestUtils_IsQuestWorldQuest(questID) and questHasWarModeBonus) then
 			tooltip:AddLine(WAR_MODE_BONUS_PERCENTAGE_FORMAT:format(C_PvP.GetWarModeRewardBonus()));
 		end
@@ -587,9 +604,7 @@ local function _AddQuestRewardsToTooltip(tooltip, questID, style)
 	-- items
 	local showRetrievingData = false;
 	local numQuestRewards = GetNumQuestLogRewards(questID);
-	local numCurrencyRewards = GetNumQuestLogRewardCurrencies(questID);
-	local showingItem = false;
-	if numQuestRewards > 0 and (not style.prioritizeCurrencyOverItem or numCurrencyRewards == 0) then
+	if numQuestRewards > 0 and (not style.prioritizeCurrencyOverItem or C_QuestInfoSystem.HasQuestRewardCurrencies(questID)) then
 		if style.fullItemDescription then
 			-- we want to do a full item description
 			local itemIndex, rewardType = QuestUtils_GetBestQualityItemRewardIndex(questID);  -- Only support one item reward currently
@@ -598,11 +613,11 @@ local function _AddQuestRewardsToTooltip(tooltip, questID, style)
 			end
 			-- check for item compare input of flag
 			if not showRetrievingData then
-				if IsModifiedClick("COMPAREITEMS") or GetCVarBool("alwaysCompareItems") then
+				if TooltipUtil.ShouldDoItemComparison() then
 					GameTooltip_ShowCompareItem(tooltip.ItemTooltip.Tooltip, tooltip.BackdropFrame);
 				else
-					for i, tooltip in ipairs(tooltip.ItemTooltip.Tooltip.shoppingTooltips) do
-						tooltip:Hide();
+					for i, shoppingTooltip in ipairs(tooltip.ItemTooltip.Tooltip.shoppingTooltips) do
+						shoppingTooltip:Hide();
 					end
 				end
 			end
@@ -610,24 +625,21 @@ local function _AddQuestRewardsToTooltip(tooltip, questID, style)
 			-- we want to do an abbreviated item description
 			local name, texture, numItems, quality, isUsable = GetQuestLogRewardInfo(1, questID);
 			local text;
-			if (numItems > 1) then
+			if numItems > 1 then
 				text = string.format(BONUS_OBJECTIVE_REWARD_WITH_COUNT_FORMAT, texture, HIGHLIGHT_FONT_COLOR:WrapTextInColorCode(numItems), name);
-			elseif (texture and name) then
+			elseif texture and name then
 				text = string.format(BONUS_OBJECTIVE_REWARD_FORMAT, texture, name);
 			end
-			if (text) then
+			if text then
 				local color = ITEM_QUALITY_COLORS[quality];
 				tooltip:AddLine(text, color.r, color.g, color.b);
 			end
 		end
 	end
-
+	
 	-- spells
-	local numQuestSpellRewards = GetNumQuestLogRewardSpells(questID);
-	if numQuestSpellRewards > 0 and not tooltip.ItemTooltip:IsShown() then
-		if not EmbeddedItemTooltip_SetSpellByQuestReward(tooltip.ItemTooltip, 1, questID) then
-			showRetrievingData = true;
-		end
+	if not tooltip.ItemTooltip:IsShown() and EmbeddedItemTooltip_SetSpellByFirstQuestReward(tooltip.ItemTooltip, questID) then
+		showRetrievingData = true;
 	end
 
 	-- atLeastShowAzerite: show azerite if nothing else is awarded
@@ -638,21 +650,35 @@ local function _AddQuestRewardsToTooltip(tooltip, questID, style)
 			hasAnySingleLineRewards = not usingCurrencyContainer or numAddedQuestCurrencies > 1;
 			if usingCurrencyContainer and numAddedQuestCurrencies > 1 then
 				EmbeddedItemTooltip_Clear(tooltip.ItemTooltip);
-				tooltip.ItemTooltip:Hide();
+				EmbeddedItemTooltip_Hide(tooltip.ItemTooltip);
 				tooltip:Show();
 			end
 		end
 	end
+
+	if style.showFirstTimeRepRewardNotice and (mainRewardIsFirstTimeReputationBonus or secondaryRewardsContainFirstTimeRepBonus) then
+		local bestTooltipForLine = tooltip.ItemTooltip:IsShown() and tooltip.ItemTooltip.Tooltip or tooltip;
+		GameTooltip_AddBlankLineToTooltip(bestTooltipForLine);
+
+		local wrapText = false;
+		local noticeText = mainRewardIsFirstTimeReputationBonus and QUEST_REWARDS_IS_ONE_TIME_REP_BONUS or QUEST_REWARDS_CONTAINS_ONE_TIME_REP_BONUS;
+		GameTooltip_AddColoredLine(bestTooltipForLine, noticeText, QUEST_REWARD_CONTEXT_FONT_COLOR, wrapText);
+
+		if bestTooltipForLine == tooltip.ItemTooltip.Tooltip then
+			tooltip.ItemTooltip.Tooltip:Show();
+		end
+	end
+
 	return hasAnySingleLineRewards, showRetrievingData;
 end
 
 -- Copy of GameTooltip_AddQuestRewardsToTooltip to prevent SetTooltipMoney from causing taint 
-function WQT_Utils:AddQuestRewardsToTooltip(tooltip, questID, style)
-	style = style or TOOLTIP_QUEST_REWARDS_STYLE_DEFAULT;
-
-	if ( GetQuestLogRewardXP(questID) > 0 or GetNumQuestLogRewardCurrencies(questID) > 0 or GetNumQuestLogRewards(questID) > 0 or
+function WorldQuestTab.WQT_Utils:AddQuestRewardsToTooltip(tooltip, questID, style)
+	style = style or TOOLTIP_QUEST_REWARDS_STYLE_WORLD_QUEST;
+	
+	if ( GetQuestLogRewardXP(questID) > 0 or C_QuestInfoSystem.HasQuestRewardCurrencies(questID) or GetNumQuestLogRewards(questID) > 0 or
 		GetQuestLogRewardMoney(questID) > 0 or GetQuestLogRewardArtifactXP(questID) > 0 or GetQuestLogRewardHonor(questID) > 0 or
-		GetNumQuestLogRewardSpells(questID) > 0) then
+		C_QuestInfoSystem.HasQuestRewardSpells(questID)) then
 		if tooltip.ItemTooltip then
 			tooltip.ItemTooltip:Hide();
 		end
@@ -671,23 +697,25 @@ function WQT_Utils:AddQuestRewardsToTooltip(tooltip, questID, style)
 				GameTooltip_AddColoredLine(tooltip, RETRIEVING_DATA, RED_FONT_COLOR);
 			end
 		end
+		
+		GameTooltip_SetTooltipWaitingForData(tooltip, showRetrievingData);
 	end
 end
 
-function WQT_Utils:ShowQuestTooltip(button, questInfo, style)
-	style = style or _V["TOOLTIP_STYLES"].default;
-	WQT:ShowDebugTooltipForQuest(questInfo, button);
+function WorldQuestTab.WQT_Utils:ShowQuestTooltip(button, questInfo, style)
+	style = style or TOOLTIP_QUEST_REWARDS_STYLE_WORLD_QUEST;
 	
-	GameTooltip:SetOwner(button, "ANCHOR_RIGHT");
+	GameTooltip:SetOwner(button, "ANCHOR_BOTTOMRIGHT", 26, 34);
+	--GameTooltip:SetAnchorType("ANCHOR_BOTTOMRIGHT", 26,34);
 	-- In case we somehow don't have data on this quest, even through that makes no sense at this point
-	if (not questInfo.questId or not HaveQuestData(questInfo.questId)) then
+	if (not questInfo.questID or not HaveQuestData(questInfo.questID)) then
 		GameTooltip_SetTitle(GameTooltip, RETRIEVING_DATA, RED_FONT_COLOR);
 		GameTooltip_SetTooltipWaitingForData(GameTooltip, true);
 		GameTooltip:Show();
 		return;
 	end
 	
-	local title, factionID, capped = C_TaskQuest.GetQuestInfoByQuestID(questInfo.questId);
+	local title, factionID, capped = C_TaskQuest.GetQuestInfoByQuestID(questInfo.questID);
 	local tagInfo = questInfo:GetTagInfo();
 	local qualityColor = WORLD_QUEST_QUALITY_COLORS[tagInfo and tagInfo.quality or Enum.WorldQuestQuality.Common];
 
@@ -701,33 +729,35 @@ function WQT_Utils:ShowQuestTooltip(button, questInfo, style)
 		elseif (questInfo.isAllyQuest) then
 			GameTooltip_AddColoredLine(GameTooltip, AVAILABLE_FOLLOWER_QUEST, HIGHLIGHT_FONT_COLOR, true);
 		elseif (tagInfo and tagInfo.worldQuestType) then
-			QuestUtils_AddQuestTypeToTooltip(GameTooltip, questInfo.questId, NORMAL_FONT_COLOR);
+			QuestUtils_AddQuestTypeToTooltip(GameTooltip, questInfo.questID, NORMAL_FONT_COLOR);
 		end
 	end
 	
 	-- faction
-	if ( factionID ) then
-		local factionName = GetFactionInfoByID(factionID);
-		if ( factionName ) then
-			if (capped) then
-				GameTooltip:AddLine(factionName, GRAY_FONT_COLOR:GetRGB());
+	if factionID then
+		local factionData = C_Reputation.GetFactionDataByID(factionID);
+		if factionData then
+			if capped then
+				GameTooltip:AddLine(factionData.name, GRAY_FONT_COLOR:GetRGB());
 			else
-				GameTooltip:AddLine(factionName);
+				GameTooltip:AddLine(factionData.name);
 			end
 		end
 	end
 	
 	-- Add time
-	local seconds, timeString, timeColor, _, _, category = WQT_Utils:GetQuestTimeString(questInfo, true, true)
-	if (seconds > 0 or category == _V["TIME_REMAINING_CATEGORY"].expired) then
+	local seconds, timeString, timeColor, _, _, category = WorldQuestTab.WQT_Utils:GetQuestTimeString(questInfo, true, true)
+	if (seconds > 0 or category == WorldQuestTab.Variables["TIME_REMAINING_CATEGORY"].expired) then
 		timeColor = seconds <= SECONDS_PER_HOUR  and timeColor or NORMAL_FONT_COLOR;
 		GameTooltip_AddColoredLine(GameTooltip, BONUS_OBJECTIVE_TIME_LEFT:format(timeString), timeColor);
+	elseif questInfo:IsBonusObjective() and timeString then
+		GameTooltip_AddColoredLine(GameTooltip, timeString, timeColor);
 	end
 
 	if (not style.hideObjectives) then
-		local numObjectives = C_QuestLog.GetNumQuestObjectives(questInfo.questId);
+		local numObjectives = C_QuestLog.GetNumQuestObjectives(questInfo.questID);
 		for objectiveIndex = 1, numObjectives do
-			local objectiveText, objectiveType, finished = GetQuestObjectiveInfo(questInfo.questId, objectiveIndex, false);
+			local objectiveText, objectiveType, finished = GetQuestObjectiveInfo(questInfo.questID, objectiveIndex, false);
 	
 			if ( objectiveText and #objectiveText > 0 ) then
 				local objectiveColor = finished and GRAY_FONT_COLOR or HIGHLIGHT_FONT_COLOR;
@@ -735,7 +765,7 @@ function WQT_Utils:ShowQuestTooltip(button, questInfo, style)
 			end
 			-- Add a progress bar if that's the type
 			if(objectiveType == "progressbar") then
-				local percent = GetQuestProgressBarPercent(questInfo.questId);
+				local percent = GetQuestProgressBarPercent(questInfo.questID);
 				GameTooltip_ShowProgressBar(GameTooltip, 0, 100, percent, PERCENTAGE_STRING:format(percent));
 			end
 		end
@@ -744,7 +774,8 @@ function WQT_Utils:ShowQuestTooltip(button, questInfo, style)
 	if (questInfo.reward.type == WQT_REWARDTYPE.missing) then
 		GameTooltip:AddLine(RETRIEVING_DATA, RED_FONT_COLOR.r, RED_FONT_COLOR.g, RED_FONT_COLOR.b);
 	else
-		self:AddQuestRewardsToTooltip(GameTooltip, questInfo.questId);
+		self:AddQuestRewardsToTooltip(GameTooltip, questInfo.questID, style);
+		--GameTooltip_AddQuestRewardsToTooltip(GameTooltip, questInfo.questID, style); -- Try later
 
 		-- reposition compare frame
 		if((questInfo.reward.type == WQT_REWARDTYPE.equipment or questInfo.reward.type == WQT_REWARDTYPE.weapon) and GameTooltip.ItemTooltip:IsShown()) then
@@ -781,8 +812,8 @@ function WQT_Utils:ShowQuestTooltip(button, questInfo, style)
 end
 
 -- Climb map parents until the first continent type map it can find.
-function WQT_Utils:GetContinentForMap(mapId) 
-	local info = WQT_Utils:GetCachedMapInfo(mapId);
+function WorldQuestTab.WQT_Utils:GetContinentForMap(mapId) 
+	local info = WorldQuestTab.WQT_Utils:GetCachedMapInfo(mapId);
 	if not info then return mapId; end
 	local parent = info.parentMapID;
 	if not parent or info.mapType <= Enum.UIMapType.Continent then 
@@ -791,40 +822,40 @@ function WQT_Utils:GetContinentForMap(mapId)
 	return self:GetContinentForMap(parent) 
 end
 
-function WQT_Utils:GetMapWQProvider()
-	if WQT.mapWQProvider then return WQT.mapWQProvider; end
+function WorldQuestTab.WQT_Utils:GetMapWQProvider()
+	if WorldQuestTab.mapWQProvider then return WorldQuestTab.mapWQProvider; end
 	
 	for k in pairs(WorldMapFrame.dataProviders) do 
 		for k1 in pairs(k) do
 			if k1=="IsMatchingWorldMapFilters" then 
-				WQT.mapWQProvider = k; 
+				WorldQuestTab.mapWQProvider = k; 
 				break;
 			end 
 		end 
 	end
-	return WQT.mapWQProvider;
+	return WorldQuestTab.mapWQProvider;
 end
 
-function WQT_Utils:GetFlightWQProvider()
-	if (WQT.FlightmapPins) then return WQT.FlightmapPins; end
+function WorldQuestTab.WQT_Utils:GetFlightWQProvider()
+	if (WorldQuestTab.FlightmapPins) then return WorldQuestTab.FlightmapPins; end
 	if (not FlightMapFrame) then return nil; end
 	
 	for k in pairs(FlightMapFrame.dataProviders) do 
 		if (type(k) == "table") then 
 			for k2 in pairs(k) do 
 				if (k2 == "activePins") then 
-					WQT.FlightmapPins = k;
+					WorldQuestTab.FlightmapPins = k;
 					break;
 				end 
 			end 
 		end 
 	end
-	return WQT.FlightmapPins;
+	return WorldQuestTab.FlightmapPins;
 end
 
-function WQT_Utils:RefreshOfficialDataProviders()
+function WorldQuestTab.WQT_Utils:RefreshOfficialDataProviders()
 	-- Have to force remove the WQ data from the map because RefreshAllData doesn't do it
-	local mapWQProvider = WQT_Utils:GetMapWQProvider();
+	local mapWQProvider = WorldQuestTab.WQT_Utils:GetMapWQProvider();
 	if (mapWQProvider) then
 		mapWQProvider:RemoveAllData();
 	end
@@ -835,7 +866,7 @@ function WQT_Utils:RefreshOfficialDataProviders()
 	end
 
 	-- Flight map world quests
-	local flightWQProvider = WQT_Utils:GetFlightWQProvider();
+	local flightWQProvider = WorldQuestTab.WQT_Utils:GetFlightWQProvider();
 	if (flightWQProvider) then
 		flightWQProvider:RemoveAllData();
 		flightWQProvider:RefreshAllData();
@@ -843,24 +874,24 @@ function WQT_Utils:RefreshOfficialDataProviders()
 end
 
 -- Compatibility with the TomTom add-on
-function WQT_Utils:AddTomTomArrowByQuestId(questId)
-	if (not questId) then return; end
-	local zoneId = C_TaskQuest.GetQuestZoneID(questId);
+function WorldQuestTab.WQT_Utils:AddTomTomArrowByQuestId(questID)
+	if (not questID) then return; end
+	local zoneId = C_TaskQuest.GetQuestZoneID(questID);
 	if (zoneId) then
-		local title = C_TaskQuest.GetQuestInfoByQuestID(questId);
-		local x, y = C_TaskQuest.GetQuestLocation(questId, zoneId)
+		local title = C_TaskQuest.GetQuestInfoByQuestID(questID);
+		local x, y = C_TaskQuest.GetQuestLocation(questID, zoneId)
 		if (title and x and y) then
 			TomTom:AddWaypoint(zoneId, x, y, {["title"] = title, ["crazy"] = true});
 		end
 	end
 end
 
-function WQT_Utils:RemoveTomTomArrowbyQuestId(questId)
-	if (not questId) then return; end
-	local zoneId = C_TaskQuest.GetQuestZoneID(questId);
+function WorldQuestTab.WQT_Utils:RemoveTomTomArrowbyQuestId(questID)
+	if (not questID) then return; end
+	local zoneId = C_TaskQuest.GetQuestZoneID(questID);
 	if (zoneId) then
-		local title = C_TaskQuest.GetQuestInfoByQuestID(questId);
-		local x, y = C_TaskQuest.GetQuestLocation(questId, zoneId)
+		local title = C_TaskQuest.GetQuestInfoByQuestID(questID);
+		local x, y = C_TaskQuest.GetQuestLocation(questID, zoneId)
 		if (title and x and y) then
 			local key = TomTom:GetKeyArgs(zoneId, x, y, title);
 			local wp = TomTom.waypoints[zoneId] and TomTom.waypoints[zoneId][key];
@@ -871,7 +902,7 @@ function WQT_Utils:RemoveTomTomArrowbyQuestId(questId)
 	end
 end
 
-function WQT_Utils:QuestIncorrectlyCounts(questLogIndex)
+function WorldQuestTab.WQT_Utils:QuestIncorrectlyCounts(questLogIndex)
 	local questInfo = C_QuestLog.GetInfo(questLogIndex);
 	if (not questInfo or questInfo.isHeader or questInfo.isTask or questInfo.isBounty) then
 		return false, questInfo.isHidden;
@@ -885,7 +916,7 @@ function WQT_Utils:QuestIncorrectlyCounts(questLogIndex)
 	
 end
 
-function WQT_Utils:QuestCountsToCap(questLogIndex)
+function WorldQuestTab.WQT_Utils:QuestCountsToCap(questLogIndex)
 	local questInfo = C_QuestLog.GetInfo(questLogIndex);
 	
 	if (not questInfo or questInfo.isHeader or questInfo.isTask or questInfo.isBounty) then
@@ -895,7 +926,7 @@ function WQT_Utils:QuestCountsToCap(questLogIndex)
 	local tagInfo = C_QuestLog.GetQuestTagInfo(questInfo.questID);
 	local counts = true;
 	
-	if (tagInfo and tagInfo.tagID and _V["QUESTS_NOT_COUNTING"][tagInfo.tagID]) then
+	if (tagInfo and tagInfo.tagID and WorldQuestTab.Variables["QUESTS_NOT_COUNTING"][tagInfo.tagID]) then
 		counts = false;
 	end
 	
@@ -903,7 +934,7 @@ function WQT_Utils:QuestCountsToCap(questLogIndex)
 end
 
 -- Count quests counting to the quest log cap and collect the ones that shouldn't count
-function WQT_Utils:GetQuestLogInfo(list)
+function WorldQuestTab.WQT_Utils:GetQuestLogInfo(list)
 	local numEntries, questCount = C_QuestLog.GetNumQuestLogEntries();
 	local maxQuests = C_QuestLog.GetMaxNumQuestsCanAccept();
 	
@@ -913,7 +944,7 @@ function WQT_Utils:GetQuestLogInfo(list)
 
 	for questLogIndex = 1, numEntries do
 		-- Remove the ones that shouldn't be counted
-		if (WQT_Utils:QuestIncorrectlyCounts(questLogIndex)) then
+		if (WorldQuestTab.WQT_Utils:QuestIncorrectlyCounts(questLogIndex)) then
 			questCount = questCount - 1;
 			if (list) then
 				tinsert(list, questLogIndex);
@@ -921,37 +952,37 @@ function WQT_Utils:GetQuestLogInfo(list)
 		end
 	end
 	
-	local color = questCount >= maxQuests and RED_FONT_COLOR or (questCount >= maxQuests-2 and _V["WQT_ORANGE_FONT_COLOR"] or _V["WQT_WHITE_FONT_COLOR"]);
+	local color = questCount >= maxQuests and RED_FONT_COLOR or (questCount >= maxQuests-2 and WorldQuestTab.Variables["WQT_ORANGE_FONT_COLOR"] or WorldQuestTab.Variables["WQT_WHITE_FONT_COLOR"]);
 	
 	return questCount, maxQuests, color;
 end
 
-function WQT_Utils:QuestIsWatchedManual(questId)
-	return questId and C_QuestLog.GetQuestWatchType(questId) == Enum.QuestWatchType.Manual;
+function WorldQuestTab.WQT_Utils:QuestIsWatchedManual(questID)
+	return questID and C_QuestLog.GetQuestWatchType(questID) == Enum.QuestWatchType.Manual;
 end
 
-function WQT_Utils:QuestIsWatchedAutomatic(questId)
-	return questId and C_QuestLog.GetQuestWatchType(questId) == Enum.QuestWatchType.Automatic;
+function WorldQuestTab.WQT_Utils:QuestIsWatchedAutomatic(questID)
+	return questID and C_QuestLog.GetQuestWatchType(questID) == Enum.QuestWatchType.Automatic;
 end
 
-function WQT_Utils:GetQuestMapLocation(questId, mapId)
+function WorldQuestTab.WQT_Utils:GetQuestMapLocation(questID, mapId)
 	local isSameMap = true;
 	if (mapId) then
-		local mapInfo = WQT_Utils:GetMapInfoForQuest(questId);
+		local mapInfo = WorldQuestTab.WQT_Utils:GetMapInfoForQuest(questID);
 		if (not mapInfo) then
 			return 0, 0;
 		end
 		isSameMap = mapInfo.mapID == mapId;
 	end
 	-- Threat quest specific
-	if (isSameMap and C_QuestLog.IsThreatQuest(questId)) then
-		local completed, x, y = QuestPOIGetIconInfo(questId);
-		if (x and y) then
-			return x, y;
-		end
-	end
+	--if (isSameMap and C_QuestLog.IsThreatQuest(questID)) then
+	--	local completed, x, y = QuestPOIGetIconInfo(questID);
+	--	if (x and y) then
+	--		return x, y;
+	--	end
+	--end
 	-- General tasks
-	local x, y = C_TaskQuest.GetQuestLocation(questId, mapId);
+	local x, y = C_TaskQuest.GetQuestLocation(questID, mapId);
 	if (x and y) then
 		return x, y;
 	end
@@ -959,8 +990,8 @@ function WQT_Utils:GetQuestMapLocation(questId, mapId)
 	return 0, 0;
 end
 
-function WQT_Utils:RewardTypePassesFilter(rewardType) 
-	local rewardFilters = WQT.settings.filters[_V["FILTER_TYPES"].reward].flags;
+function WorldQuestTab.WQT_Utils:RewardTypePassesFilter(rewardType) 
+	local rewardFilters = WorldQuestTab.settings.filters[WorldQuestTab.Variables["FILTER_TYPES"].reward].flags;
 	if(rewardType == WQT_REWARDTYPE.equipment or rewardType == WQT_REWARDTYPE.weapon) then
 		return rewardFilters.Armor;
 	end
@@ -992,7 +1023,7 @@ function WQT_Utils:RewardTypePassesFilter(rewardType)
 	return true;
 end
 
-function WQT_Utils:GetQuestRewardIcon(questID)
+function WorldQuestTab.WQT_Utils:GetQuestRewardIcon(questID)
 	local texture;
 	-- Item
 	texture = select(2, GetQuestLogRewardInfo(1, questID));
@@ -1013,14 +1044,14 @@ function WQT_Utils:GetQuestRewardIcon(questID)
 	end
 end
 
-function WQT_Utils:CalculateWarmodeAmount(rewardType, amount)
-	if (C_PvP.IsWarModeDesired() and _V["WARMODE_BONUS_REWARD_TYPES"][rewardType]) then
+function WorldQuestTab.WQT_Utils:CalculateWarmodeAmount(rewardType, amount)
+	if (C_PvP.IsWarModeDesired() and WorldQuestTab.Variables["WARMODE_BONUS_REWARD_TYPES"][rewardType]) then
 		amount = amount + floor(amount * C_PvP.GetWarModeRewardBonus() / 100);
 	end
 	return amount;
 end
 
-function WQT_Utils:DeepWipeTable(t)
+function WorldQuestTab.WQT_Utils:DeepWipeTable(t)
 	for k, v in pairs(t) do
 		if (type(v) == "table") then
 			self:DeepWipeTable(v)
@@ -1030,61 +1061,26 @@ function WQT_Utils:DeepWipeTable(t)
 	t = nil;
 end
 
-local FORMAT_VERSION_MINOR = "%s|cFF888888.%s|r"
-local FORMAT_H1 = "%s<h1 align='center'>%s</h1>";
-local FORMAT_H2 = "%s<h2>%s:</h2>";
-local FORMAT_p = "%s<p>%s</p>";
-local FORMAT_WHITESPACE = "%s<h3>&#160;</h3>"
-
-local function AddNotes(updateMessage, title, notes)
-	if (not notes) then return updateMessage; end
-	if (title) then
-		updateMessage = FORMAT_H2:format(updateMessage, title);
-	end
-	for k, note in ipairs(notes) do
-		updateMessage = FORMAT_p:format(updateMessage, note);
-		updateMessage = FORMAT_WHITESPACE:format(updateMessage);
-	end
-	updateMessage = FORMAT_WHITESPACE:format(updateMessage);
-	return updateMessage;
+function WorldQuestTab.WQT_Utils:RegisterExternalSettings(key, defaults)
+	return WorldQuestTab.WQT_Profiles:RegisterExternalSettings(key, defaults);
 end
 
-function WQT_Utils:FormatPatchNotes(notes, title)
-	local updateMessage = "<html><body><h3>&#160;</h3>";
-	updateMessage = FORMAT_H1:format(updateMessage, title);
-	updateMessage = FORMAT_WHITESPACE:format(updateMessage);
-	for i=1, #notes do
-		local patch = notes[i];
-		local version = patch.minor and FORMAT_VERSION_MINOR:format(patch.version, patch.minor) or patch.version;
-		updateMessage = FORMAT_H1:format(updateMessage, version);
-		updateMessage = AddNotes(updateMessage, nil, patch.intro);
-		updateMessage = AddNotes(updateMessage, "New", patch.new);
-		updateMessage = AddNotes(updateMessage, "Changes", patch.changes);
-		updateMessage = AddNotes(updateMessage, "Fixes", patch.fixes);
-	end
-	return updateMessage .. "</body></html>";
-end
-
-function WQT_Utils:RegisterExternalSettings(key, defaults)
-	return WQT_Profiles:RegisterExternalSettings(key, defaults);
-end
-
-function WQT_Utils:AddExternalSettingsOptions(settings)
+function WorldQuestTab.WQT_Utils:AddExternalSettingsOptions(settings)
 	WQT_SettingsFrame:AddSettingList(settings);
 end
 
-function WQT_Utils:FilterIsOldContent(typeID, flagID)
-	local typeList = _V["FILTER_TYPE_OLD_CONTENT"][typeID];
+function WorldQuestTab.WQT_Utils:FilterIsOldContent(typeID, flagID)
+	local typeList = WorldQuestTab.Variables["FILTER_TYPE_OLD_CONTENT"][typeID];
 	if (typeList) then
 		return typeList[flagID];
 	end
 	return false;
 end
 
-function WQT_Utils:GetRewardIconInfo(rewardType, subType)
+function WorldQuestTab.WQT_Utils:GetRewardIconInfo(rewardType, subType)
 	if (not rewardType) then return; end
 
-	local rewardTypeAtlas = _V["REWARD_TYPE_ATLAS"][rewardType];
+	local rewardTypeAtlas = WorldQuestTab.Variables["REWARD_TYPE_ATLAS"][rewardType];
 	if (rewardTypeAtlas and not rewardTypeAtlas.texture) then
 		rewardTypeAtlas = rewardTypeAtlas[subType];
 	end
@@ -1092,10 +1088,10 @@ function WQT_Utils:GetRewardIconInfo(rewardType, subType)
 	return rewardTypeAtlas;
 end
 
-function WQT_Utils:HandleQuestClick(frame, questInfo, button)
-	if (not questInfo or not questInfo.questId) then return end
+function WorldQuestTab.WQT_Utils:HandleQuestClick(frame, questInfo, button)
+	if (not questInfo or not questInfo.questID) then return end
 	
-	local questID =  questInfo.questId;
+	local questID =  questInfo.questID;
 	local isBonus = QuestUtils_IsQuestBonusObjective(questID);
 	local reward = questInfo:GetReward(1);
 	local tagInfo = questInfo:GetTagInfo();
@@ -1109,7 +1105,7 @@ function WQT_Utils:HandleQuestClick(frame, questInfo, button)
 			if (isWorldQuest) then
 				if (not ChatEdit_TryInsertQuestLinkForQuestID(questID)) then 
 					if (QuestUtils_IsQuestWatched(questID)) then
-						local hardWatched = WQT_Utils:QuestIsWatchedManual(questID);
+						local hardWatched = WorldQuestTab.WQT_Utils:QuestIsWatchedManual(questID);
 						C_QuestLog.RemoveWorldQuestWatch(questID);
 						-- If it wasn't actually hard watched, do so now
 						if (not hardWatched) then
@@ -1132,7 +1128,7 @@ function WQT_Utils:HandleQuestClick(frame, questInfo, button)
 			-- 'Soft' tracking and jumping map to relevant zone
 			-- Don't track bonus objectives. The object tracker doesn't like it;
 			if (isWorldQuest) then	
-				local hardWatched = WQT_Utils:QuestIsWatchedManual(questID);
+				local hardWatched = WorldQuestTab.WQT_Utils:QuestIsWatchedManual(questID);
 				-- if it was hard watched, keep it that way
 				if (not hardWatched) then
 					C_QuestLog.AddWorldQuestWatch(questID, Enum.QuestWatchType.Automatic);
@@ -1155,13 +1151,14 @@ function WQT_Utils:HandleQuestClick(frame, questInfo, button)
 			C_SuperTrack.SetSuperTrackedUserWaypoint(true);
 			soundID = SOUNDKIT.UI_MAP_WAYPOINT_CLICK_TO_PLACE;
 		elseif(IsModifiedClick("QUESTWATCHTOGGLE")) then
-			local dislike = not WQT_Utils:QuestIsDisliked(questID);
-			WQT_Utils:SetQuestDisliked(questID, dislike);
+			local dislike = not WorldQuestTab.WQT_Utils:QuestIsDisliked(questID);
+			WorldQuestTab.WQT_Utils:SetQuestDisliked(questID, dislike);
 			
 			playSound = false;
 		else
 			-- Context menu
-			ADD:CursorDropDown(frame, function(...) WQT:TrackDDFunc(...) end);
+			frame.questInfo = questInfo;
+			WorldQuestTab:InitTrackContextMenu(frame);
 		end
 	end
 
@@ -1170,16 +1167,16 @@ function WQT_Utils:HandleQuestClick(frame, questInfo, button)
 	end
 end
 
-function WQT_Utils:QuestIsDisliked(questID)
-	return WQT.settings.general.dislikedQuests[questID] and true or false;
+function WorldQuestTab.WQT_Utils:QuestIsDisliked(questID)
+	return WorldQuestTab.settings.general.dislikedQuests[questID] and true or false;
 end
 
-function WQT_Utils:SetQuestDisliked(questID, isDisliked)
+function WorldQuestTab.WQT_Utils:SetQuestDisliked(questID, isDisliked)
 	if (not isDisliked) then
 		isDisliked = nil;
 	end
 	
-	WQT.settings.general.dislikedQuests[questID] = isDisliked;
+	WorldQuestTab.settings.general.dislikedQuests[questID] = isDisliked;
 	
 	WQT_QuestScrollFrame:UpdateQuestList();
 	
@@ -1192,10 +1189,10 @@ function WQT_Utils:SetQuestDisliked(questID, isDisliked)
 	PlaySound(soundID, nil, false);
 end 
 
-function WQT_Utils:QuestIsVIQ(questInfo)
-	if (questInfo:IsQuestOfType(WQT_QUESTTYPE.calling)) then return WQT.settings.general.filterPasses.calling; end
-	if (questInfo:IsQuestOfType(WQT_QUESTTYPE.threat)) then return WQT.settings.general.filterPasses.threat; end
-	if (questInfo:IsQuestOfType(WQT_QUESTTYPE.combatAlly)) then return WQT.settings.general.filterPasses.combatAlly; end
+function WorldQuestTab.WQT_Utils:QuestIsVIQ(questInfo)
+	if (questInfo:IsQuestOfType(WQT_QUESTTYPE.calling)) then return WorldQuestTab.settings.general.filterPasses.calling; end
+	if (questInfo:IsQuestOfType(WQT_QUESTTYPE.threat)) then return WorldQuestTab.settings.general.filterPasses.threat; end
+	if (questInfo:IsQuestOfType(WQT_QUESTTYPE.combatAlly)) then return WorldQuestTab.settings.general.filterPasses.combatAlly; end
 	return false;
 end
 
@@ -1209,11 +1206,11 @@ local function ExtractColorValueFromHex(str, index)
 	return tonumber(str:sub(index, index + 1), 16) / 255;
 end
 
-function WQT_Utils:LoadColors()
+function WorldQuestTab.WQT_Utils:LoadColors()
 	local count = 1;
-	for colorID, hex in pairs(WQT.settings.colors) do
+	for colorID, hex in pairs(WorldQuestTab.settings.colors) do
 		-- Create enum index
-		_V["COLOR_IDS"][colorID] = count;
+		WorldQuestTab.Variables["COLOR_IDS"][colorID] = count;
 		-- assign color to index
 		_Colors[count] =  CreateColorFromHexString(hex);
 		
@@ -1221,7 +1218,7 @@ function WQT_Utils:LoadColors()
 	end
 end
 
-function WQT_Utils:UpdateColor(colorID, r, g, b, a)
+function WorldQuestTab.WQT_Utils:UpdateColor(colorID, r, g, b, a)
 	local color = _Colors[colorID];
 	if (not color) then return; end
 
@@ -1235,12 +1232,12 @@ function WQT_Utils:UpdateColor(colorID, r, g, b, a)
 	return color;
 end
 
-function WQT_Utils:GetColor(colorID)
+function WorldQuestTab.WQT_Utils:GetColor(colorID)
 	return _Colors[colorID] or WHITE_FONT_COLOR;
 end
 
-function WQT_Utils:GetRewardTypeColorIDs(rewardType)
-	local colorIDs = _V["COLOR_IDS"];
+function WorldQuestTab.WQT_Utils:GetRewardTypeColorIDs(rewardType)
+	local colorIDs = WorldQuestTab.Variables["COLOR_IDS"];
 	local ring = colorIDs.rewardItem;
 	local text = colorIDs.rewardItem;
 	
@@ -1291,5 +1288,3 @@ function WQT_Utils:GetRewardTypeColorIDs(rewardType)
 	
 	return self:GetColor(ring), self:GetColor(text);
 end
-
-

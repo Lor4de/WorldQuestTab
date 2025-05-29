@@ -1,8 +1,6 @@
- <Ui xmlns="http://www.blizzard.com/wow/ui/"
+﻿ <Ui xmlns="http://www.blizzard.com/wow/ui/"
      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
      xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ../../FrameXML/UI.xsd">
-
-	<Script file="MapPinProvider.lua"/>
 
 	<Button name="WQT_PinTemplate" mixin="WQT_PinMixin" flattenRenderLayers="true" virtual="true" frameStrata="MEDIUM">
 		<Size x="25" y="25" />
@@ -12,8 +10,8 @@
 			<Layer level="BACKGROUND" textureSubLevel="3">
 				<Texture parentKey="CustomUnderlay" atlas="worldquest-questmarker-dragon" hidden="true">
 					<Anchors>
-						<Anchor point="TOPLEFT" x="-5" y="4"/>
-						<Anchor point="BOTTOMRIGHT" x="5" y="-5"/>
+						<Anchor point="TOPLEFT" x="-6" y="7"/>
+						<Anchor point="BOTTOMRIGHT" x="7" y="-7"/>
 					</Anchors>
 				</Texture>
 				<Texture parentKey="Icon">
@@ -56,7 +54,7 @@
 						<Anchor point="BOTTOMRIGHT" x="-2" y="2"/>
 					</Anchors>
 				</Texture>
-				<Texture parentKey="InnerGlow" file="Interface\Addons\WorldQuestTab\Images\PoIRing" alphaMode="ADD" hidden="false">
+				<Texture parentKey="InnerGlow" file="Interface\Addons\WorldQuestTab\Media\Icons\PoIRing" alphaMode="ADD" hidden="false">
 					<Anchors>
 						<Anchor point="TOPLEFT" x="3" y="-3"/>
 						<Anchor point="BOTTOMRIGHT" x="-3" y="3"/>
@@ -68,14 +66,19 @@
 			
 			<Layer level="ARTWORK" textureSubLevel="-1">
 				<!-- This serves as a background for the timer -->
-				<Texture parentKey="RingBG" alpha="1" file="Interface\Addons\WorldQuestTab\Images\PoIRing" />
+				<Texture parentKey="RingBG" alpha="1" file="Interface\Addons\WorldQuestTab\Media\Icons\PoIRing" />
 			</Layer>
 			<Layer level="ARTWORK" textureSubLevel="2" >
 				<!-- Edge highlight of the timer. Custom so it can be colored -->
-				<Texture parentKey="Pointer" alpha="1" file="Interface\Addons\WorldQuestTab\Images\PoIRingPointer"/>
+				<Texture parentKey="Pointer" alpha="1" file="Interface\Addons\WorldQuestTab\Media\Icons\PoIRingPointer"/>
 			</Layer>
 			<Layer level="ARTWORK" textureSubLevel="5">
-				 <FontString parentKey="Time" inherits="WQT_NumberFontOutline" maxLines="1" justifyV="MIDDLE" text="Uh oh" hidden="true">
+				<Texture parentKey="WarbandBonusIcon" alpha="1" atlas="warbands-icon" useAtlasSize="true" scale="0.9" hidden="true">
+					<Anchors>
+						<Anchor point="TOP" relativePoint="TOP" y="16"/>
+					</Anchors>
+				</Texture>
+				<FontString parentKey="Time" inherits="GameFontNormal" maxLines="1" justifyV="MIDDLE" text="Uh oh" hidden="true">
 					<size y="18"/>
 					<Anchors>
 						<Anchor point="TOP" relativePoint="BOTTOM" x="2" y="2"/>
@@ -95,13 +98,13 @@
 		
 		<Layers>
 			<Layer level="BACKGROUND" textureSubLevel="4">
-				<Texture parentKey="PingStatic" file="Interface\Addons\WorldQuestTab\Images\PoIPing" alpha="0" hidden="true" alphaMode="BLEND">
+				<Texture parentKey="PingStatic" file="Interface\Addons\WorldQuestTab\Media\Icons\PoIPing" alpha="0" hidden="true" alphaMode="BLEND">
 					<Anchors>
 						<Anchor point="TOPLEFT" x="-3" y="3"/>
 						<Anchor point="BOTTOMRIGHT" x="3" y="-3"/>
 					</Anchors>
 				</Texture>
-				<Texture parentKey="Ping" file="Interface\Addons\WorldQuestTab\Images\PoIPing" alpha="0" hidden="true" alphaMode="BLEND">
+				<Texture parentKey="Ping" file="Interface\Addons\WorldQuestTab\Media\Icons\PoIPing" alpha="0" hidden="true" alphaMode="BLEND">
 					<Anchors>
 						<Anchor point="TOPLEFT" x="-3" y="3"/>
 						<Anchor point="BOTTOMRIGHT" x="3" y="-3"/>
@@ -112,7 +115,7 @@
 		
 		<Frames>
 			<Cooldown parentKey="Ring" useParentLevel="true" setAllPoints="true" hideCountdownNumbers="true">
-				<SwipeTexture file="Interface\Addons\WorldQuestTab\Images\PoIRing"/>
+				<SwipeTexture file="Interface\Addons\WorldQuestTab\Media\Icons\PoIRing"/>
 			</Cooldown>
 		</Frames>
 		

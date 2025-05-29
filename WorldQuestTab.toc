@@ -1,10 +1,34 @@
-﻿## Interface: 90100
+﻿## Interface: 110105
 ## Title: World Quest Tab
-## Notes: Creates a new quest tab to keep track of world quests.
-## Author: LanceDH
-## Version: 9.1.01
-## SavedVariables: BWQDB
+## Notes: Creates a new quest tab to keep track of world quests
+## Author: Lorade
+## Version: 11.1.5.5
+## SavedVariables: WorldQuestTabDB
+## IconTexture: Interface\AddOns\WorldQuestTab\Media\Icons\WorldQuestTab.blp
+
+Include.xml
+Locales\Locale.xml
+
+Data.lua
+Profiles.lua
+
+Templates.lua
+Templates.xml
+
+Dataprovider.lua
+WorldQuestTab.lua
+
+MapPinProvider.lua
+MapPinProvider.xml
+
+Modules\Callings\CallingsBoard.lua
+Modules\Callings\CallingsBoard.xml
 
 WorldQuestTab.xml
-External\External.xml
+
+Plugins\Base.lua
+Plugins\TomTom.lua
+Plugins\Blizzard_GarrisonUI.lua
+
+Settings.lua
 Settings.xml

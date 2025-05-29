@@ -1,9 +1,4 @@
-﻿local addonName, addon = ...
-local WQT = addon.WQT;
-local _L = addon.L
-local _V = addon.variables;
-local ADD = LibStub("AddonDropDown-2.0");
-local WQT_Utils = addon.WQT_Utils;
+﻿WorldQuestTab = LibStub("AceAddon-3.0"):GetAddon("WorldQuestTab")
 
 local SETTINGS_PADDING_TOP = 5;
 local SETTINGS_PADDING_BOTTOM = 15;
@@ -19,6 +14,12 @@ function WQT_SettingsBaseMixin:OnLoad()
 end
 
 function WQT_SettingsBaseMixin:OnEnter(anchorFrame, anchorType)
+	if self.showBigTooltip then
+		self.showBigTooltip();
+		GameTooltip:Show();
+		return;
+	end
+
 	local tooltipText = not self:IsDisabled() and self.tooltip or self.disabledTooltip;
 	if (tooltipText) then
 		GameTooltip:SetOwner(anchorFrame or self, anchorType or "ANCHOR_RIGHT");
@@ -115,7 +116,7 @@ function WQT_SettingsQuestListMixin:OnLoad()
 	typeFrame:Show();
 	
 	questFrame.Time:SetVertexColor(0, 0.75, 0);
-	local mapInfo = WQT_Utils:GetCachedMapInfo(942);
+	local mapInfo = WorldQuestTab.WQT_Utils:GetCachedMapInfo(942);
 	self.zoneName = mapInfo.name;
 	questFrame.Extra:SetText(self.zoneName);
 end
@@ -124,16 +125,16 @@ function WQT_SettingsQuestListMixin:UpdateState()
 	local questFrame = self.Preview;
 	questFrame.Title:ClearAllPoints()
 	questFrame.Title:SetPoint("RIGHT", questFrame.Rewards, "LEFT", -5, 0);
-	if (WQT.settings.list.factionIcon) then
+	if (WorldQuestTab.settings.list.factionIcon) then
 		questFrame.Title:SetPoint("BOTTOMLEFT", questFrame.Faction, "RIGHT", 5, 1);
-	elseif (WQT.settings.list.typeIcon) then
+	elseif (WorldQuestTab.settings.list.typeIcon) then
 		questFrame.Title:SetPoint("BOTTOMLEFT", questFrame.Type, "RIGHT", 5, 1);
 	else
 		questFrame.Title:SetPoint("BOTTOMLEFT", questFrame, "LEFT", 10, 0);
 	end
 
 	-- Faction Icon
-	if (WQT.settings.list.factionIcon) then
+	if (WorldQuestTab.settings.list.factionIcon) then
 		questFrame.Faction:Show();
 		questFrame.Faction:SetWidth(questFrame.Faction:GetHeight());
 	else
@@ -142,7 +143,7 @@ function WQT_SettingsQuestListMixin:UpdateState()
 	end
 	
 	-- Type icon
-	if (WQT.settings.list.typeIcon) then
+	if (WorldQuestTab.settings.list.typeIcon) then
 		questFrame.Type:Show();
 		questFrame.Type:SetWidth(questFrame.Type:GetHeight());
 	else
@@ -151,14 +152,14 @@ function WQT_SettingsQuestListMixin:UpdateState()
 	end
 	
 	-- Zone name
-	questFrame.Extra:SetText(WQT.settings.list.showZone and self.zoneName or "");
+	questFrame.Extra:SetText(WorldQuestTab.settings.list.showZone and self.zoneName or "");
 
 	-- Adjust time and zone sizes
-	local extraSpace = WQT.settings.list.factionIcon and 0 or 14;
-	extraSpace = extraSpace + (WQT.settings.list.typeIcon and 0 or 14);
-	local timeWidth = extraSpace + (WQT.settings.list.fullTime and 70 or 60);
-	local zoneWidth = extraSpace + (WQT.settings.list.fullTime and 80 or 90);
-	if (not WQT.settings.list.showZone) then
+	local extraSpace = WorldQuestTab.settings.list.factionIcon and 0 or 14;
+	extraSpace = extraSpace + (WorldQuestTab.settings.list.typeIcon and 0 or 14);
+	local timeWidth = extraSpace + (WorldQuestTab.settings.list.fullTime and 70 or 60);
+	local zoneWidth = extraSpace + (WorldQuestTab.settings.list.fullTime and 80 or 90);
+	if (not WorldQuestTab.settings.list.showZone) then
 		timeWidth = timeWidth + zoneWidth;
 		zoneWidth = 0.1;
 	end
@@ -168,24 +169,31 @@ function WQT_SettingsQuestListMixin:UpdateState()
 	-- Time display
 	-- 74160s == 20h 36m
 	local timeString;
-	if (WQT.settings.list.fullTime) then
+	if (WorldQuestTab.settings.list.fullTime) then
 		timeString = SecondsToTime(74160, true, false);
 	else
 		timeString = D_HOURS:format(74160 / SECONDS_PER_HOUR);
 	end
 	questFrame.Time:SetText(timeString);
-	if (WQT.settings.list.colorTime) then
-		local color = WQT_Utils:GetColor(_V["COLOR_IDS"].timeMedium)
+	if (WorldQuestTab.settings.list.colorTime) then
+		local color = WorldQuestTab.WQT_Utils:GetColor(WorldQuestTab.Variables["COLOR_IDS"].timeMedium)
 		questFrame.Time:SetVertexColor(color:GetRGB());
 	else
-		questFrame.Time:SetVertexColor(_V["WQT_WHITE_FONT_COLOR"]:GetRGB());
+		questFrame.Time:SetVertexColor(WorldQuestTab.Variables["WQT_WHITE_FONT_COLOR"]:GetRGB());
+	end
+	
+	-- Warband bonus
+	if (WorldQuestTab.settings.list.showWarbandBonus) then
+		questFrame.WarbandBonus:Show();
+	else
+		questFrame.WarbandBonus:Hide();
 	end
 	
 	-- Fake rewards
 	questFrame.Rewards:Reset();
-	questFrame.Rewards:AddReward(WQT_REWARDTYPE.equipment, 1733697, 3, 410, _V["WQT_COLOR_ARMOR"], true);
-	questFrame.Rewards:AddReward(WQT_REWARDTYPE.gold, 133784, 1, 1320000, _V["WQT_COLOR_GOLD"], false);
-	questFrame.Rewards:AddReward(WQT_REWARDTYPE.xp, 894556, 1, 34000, _V["WQT_COLOR_ITEM"], false);
+	questFrame.Rewards:AddReward(WQT_REWARDTYPE.equipment, 1733697, 3, 410, WorldQuestTab.Variables["WQT_COLOR_ARMOR"], true);
+	questFrame.Rewards:AddReward(WQT_REWARDTYPE.gold, 133784, 1, 1320000, WorldQuestTab.Variables["WQT_COLOR_GOLD"], false);
+	questFrame.Rewards:AddReward(WQT_REWARDTYPE.xp, 894556, 1, 34000, WorldQuestTab.Variables["WQT_COLOR_ITEM"], false);
 end
 
 --------------------------------
@@ -229,13 +237,34 @@ WQT_SettingsSliderMixin = CreateFromMixins(WQT_SettingsBaseMixin);
 
 function WQT_SettingsSliderMixin:Init(data)
 	WQT_SettingsBaseMixin.Init(self, data);
+	
 	self.getValueFunc = data.getValueFunc;
 	self.min = data.min or 0;
 	self.max = data.max or 1;
-	self.Slider:SetMinMaxValues(self.min, self.max);
-	self.Slider:SetValueStep(data.valueStep);
-	self.Slider:SetObeyStepOnDrag(data.valueStep and true or false)
+	
+	self.SettingSlider.Slider:SetMinMaxValues(self.min, self.max);
+	self.SettingSlider.Slider:SetValueStep(data.valueStep);
+	self.SettingSlider.Slider:SetObeyStepOnDrag(data.valueStep and true or false)
+	self.SettingSlider.Slider:HookScript("OnEnter", function(self) self:GetParent():GetParent():OnEnter(self); end);
+	self.SettingSlider.Slider:HookScript("OnLeave", function(self) self:GetParent():GetParent():OnLeave(); end);
+	self.SettingSlider.Slider:HookScript("OnValueChanged", function(self, value, userInput) self:GetParent():GetParent():OnValueChanged(value, userInput); end);
+	self.SettingSlider.Back:HookScript("OnClick", function(owner) self:OnStepperClicked(false); end);
+	self.SettingSlider.Forward:HookScript("OnClick", function(owner) self:OnStepperClicked(true); end);
+	
 	self:UpdateState();
+end
+
+function WQT_SettingsSliderMixin:OnStepperClicked(forward)
+	local value = self.SettingSlider.Slider:GetValue();
+	local step = self.SettingSlider.Slider:GetValueStep();
+	if forward then
+		self.SettingSlider.Slider:SetValue(value + step, true);
+	else
+		self.SettingSlider.Slider:SetValue(value - step, true);
+	end
+	
+	PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON);
+	self:OnValueChanged(self.SettingSlider.Slider:GetValue(), true);
 end
 
 function WQT_SettingsSliderMixin:Reset()
@@ -246,7 +275,7 @@ function WQT_SettingsSliderMixin:UpdateState()
 	WQT_SettingsBaseMixin.UpdateState(self);
 	if (self.getValueFunc) then
 		local currentValue = self.getValueFunc();
-		self.Slider:SetValue(currentValue);
+		self.SettingSlider.Slider:SetValue(currentValue);
 		self.TextBox:SetText(Round(currentValue*100)/100);
 		self.current = currentValue;
 	end
@@ -255,10 +284,10 @@ end
 function WQT_SettingsSliderMixin:SetDisabled(value)
 	WQT_SettingsBaseMixin.SetDisabled(self, value);
 	if (value) then
-		self.Slider:Disable();
+		self.SettingSlider.Slider:Disable();
 		self.TextBox:Disable();
 	else
-		self.Slider:Enable();
+		self.SettingSlider.Slider:Enable();
 		self.TextBox:Enable();
 	end
 end
@@ -390,68 +419,107 @@ end
 WQT_SettingsDropDownMixin = CreateFromMixins(WQT_SettingsBaseMixin);
 
 function WQT_SettingsDropDownMixin:OnLoad()
-	self.DropDown = ADD:CreateMenuTemplate(nil, self, nil, "BUTTON");
-	self.DropDown:SetSize(150, 22);
-	self.DropDown:SetPoint("BOTTOMLEFT", self, 27, 10);
-	self.DropDown:SetPoint("RIGHT", self, -35, 10);
-	self.DropDown.Text:SetJustifyH("LEFT");
-	self.DropDown:EnableMouse(true);
-	self.DropDown:SetScript("OnEnter", function() self:OnEnter(self.DropDown) end);
-	self.DropDown:SetScript("OnLeave", function() self:OnLeave() end);
+	if not self.Dropdown then
+		self.isSpecial = true; -- Custom dropdown like in settings
+		self.Dropdown = self.Container.Dropdown;
+	end
+	self.Dropdown:SetWidth(190);
+	self.Dropdown:HookScript("OnEnter", function()
+			if self.isSpecial then self:UpdateAtlas(); end
+			self:OnEnter(self.Dropdown);
+		end);
+	self.Dropdown:HookScript("OnLeave", function()
+			if self.isSpecial then self:UpdateAtlas(); end
+			self:OnLeave();
+		end);
+end
+
+function WQT_SettingsDropDownMixin:UpdateAtlas()
+	self.Dropdown.Background:SetAtlas(self:GetBackgroundAtlas(), TextureKitConstants.UseAtlasSize);
+end
+
+function WQT_SettingsDropDownMixin:GetBackgroundAtlas()
+	if self.Dropdown:IsEnabled() then
+		if self.Dropdown:IsDownOver() then
+			return "common-dropdown-c-button-pressedhover-1";
+		elseif self.Dropdown:IsOver() then
+			return "common-dropdown-c-button-hover-1";
+		elseif self.Dropdown:IsDown() then
+			return "common-dropdown-c-button-pressed-1";
+		elseif self.Dropdown:IsMenuOpen() then
+			return "common-dropdown-c-button-open";
+		else
+			return "common-dropdown-c-button";
+		end
+	end
+
+	return "common-dropdown-c-button-disabled";
 end
 
 function WQT_SettingsDropDownMixin:SetDisabled(value)
 	WQT_SettingsBaseMixin.SetDisabled(self, value);
 	if (value) then
-		self.DropDown:Disable();
+		self.Dropdown:Disable();
 	else
-		self.DropDown:Enable();
+		self.Dropdown:Enable();
 	end
 end
 
 function WQT_SettingsDropDownMixin:Init(data)
 	WQT_SettingsBaseMixin.Init(self, data);
 	self.getValueFunc = data.getValueFunc;
-	if (data.options) then
-		self.options = data.options;
-		
-		local function temp (frame, level, value)
-			local info = frame:CreateButtonInfo();
-			info.func = function(option, arg1, arg2) 
-					self:OnValueChanged(arg1, true);
-					self.DropDown:SetDisplayText(arg2);
+	
+	-- Create a tooltip with every option listed (as in WoW settings)
+	if type(data.options) == "table" and self.isSpecial then
+		self.showBigTooltip = function()
+			local tooltipText = not self:IsDisabled() and self.tooltip or self.disabledTooltip;
+			if (tooltipText) then
+				GameTooltip:SetOwner(self.Dropdown, "ANCHOR_RIGHT");
+				if (self.label) then
+					GameTooltip_SetTitle(GameTooltip, self.label);
 				end
-			local selected;
-			if (data.getValueFunc) then
-				selected = data.getValueFunc();
-			end
-			
-			local options = self.options;
-			if (type(options) ==  "function") then
-				options = options();
-			end
-			
-			for id, displayInfo in pairs(options) do
-				local label = displayInfo.label or "Invalid label";
-				info.value = id;
-				info.arg1 = displayInfo.arg1;
-				info.text = label; 
-				info.arg2 = label;
-				info.tooltipTitle = label;
-				info.tooltipText = displayInfo.tooltip;
-				info.tooltipOnButton = true;
-
-				if id == selected then
-					info.checked = 1;
-				else
-					info.checked = nil;
+				GameTooltip_AddNormalLine(GameTooltip, tooltipText);
+				
+				-- Go through the options	
+				if data.options then
+					for id, displayInfo in pairs(data.options) do
+						local label = displayInfo.label or "Invalid label";
+						local combinedLine = WrapTextInColor(label..": ", HIGHLIGHT_FONT_COLOR);
+						if displayInfo.tooltip then
+							combinedLine = combinedLine..displayInfo.tooltip;
+							GameTooltip_AddNormalLine(GameTooltip, "\n"); -- New line
+							GameTooltip_AddNormalLine(GameTooltip, combinedLine);
+						end
+					end
 				end
-				frame:AddButton(info);
 			end
 		end
-		ADD:LinkDropDown(self.DropDown, temp, nil, nil, nil, nil, "LIST");
-		
 	end
+	
+	self.Dropdown:SetupMenu(function(dropdown, rootDescription)
+		if data.options then
+			self.options = data.options;
+			
+			local options = self.options;
+			if type(options) ==  "function" then
+				options = options();
+			end
+						
+			for id, displayInfo in pairs(options) do
+				local label = displayInfo.label or "Invalid label";
+				local menu = rootDescription:CreateRadio(label,
+					function() return id == data.getValueFunc(); end,
+					function(index) self:OnValueChanged(index, true); end, id);
+				
+				if displayInfo.tooltip then
+					menu:SetTooltip(function(tooltip, elementDescription)
+							GameTooltip_SetTitle(tooltip, label);
+							GameTooltip_AddNormalLine(tooltip, displayInfo.tooltip);
+						end);
+				end
+			end
+		end
+	end);
 	
 	self:UpdateState();
 end
@@ -463,10 +531,9 @@ function WQT_SettingsDropDownMixin:UpdateState()
 		if (type(options) ==  "function") then
 			options = options();
 		end
-		local index = self.getValueFunc();
-		local option = options[index]
-		local label = option and option.label or "Invalid label";
-		self.DropDown:SetDisplayText(label);
+		
+		-- Update dropdown
+		self.Dropdown:OnShow();
 	end
 end
 
@@ -612,10 +679,20 @@ end
 
 function WQT_SettingsCategoryMixin:UpdateState()
 	WQT_SettingsBaseMixin.UpdateState(self);
-	if (self.isExpanded) then
-		self.ExpandIcon:SetAtlas("friendslist-categorybutton-arrow-down", true);
+	if self.isExpanded then
+		if self.SubLeft then
+			self.SubLeft:SetAtlas("campaign_headericon_open", true);
+		else
+			self.Right:SetAtlas("Options_ListExpand_Right_Expanded", true);
+			self.HighlightRight:SetAtlas("Options_ListExpand_Right_Expanded", true);
+		end
 	else
-		self.ExpandIcon:SetAtlas("friendslist-categorybutton-arrow-right", true);
+		if self.SubLeft then
+			self.SubLeft:SetAtlas("campaign_headericon_closed", true);
+		else
+			self.Right:SetAtlas("Options_ListExpand_Right", true);
+			self.HighlightRight:SetAtlas("Options_ListExpand_Right", true);
+		end
 	end
 end
 
@@ -643,6 +720,23 @@ function WQT_SettingsFrameMixin:OnLoad()
 	
 	self.bufferedSettings = {};
 	self.bufferedCategories = {};
+	
+	self.ScrollFrame:RegisterCallback("OnVerticalScroll", function(offset)
+		self:UpdateBottomShadow(offset);
+	end);
+
+	self.ScrollFrame:RegisterCallback("OnScrollRangeChanged", function(offset)
+		self:UpdateBottomShadow(offset);
+	end);
+	self:UpdateBottomShadow(0);
+end
+
+function WQT_SettingsFrameMixin:UpdateBottomShadow(offset)
+	local shadow = self:GetParent().BorderFrame.Shadow;
+	local height = shadow:GetHeight();
+	local delta = self.ScrollFrame:GetVerticalScrollRange() - self.ScrollFrame:GetVerticalScroll();
+	local alpha = Clamp(delta/height, 0, 1);
+	shadow:SetAlpha(alpha);
 end
 
 function WQT_SettingsFrameMixin:Init(categories, settings)
@@ -686,7 +780,7 @@ function WQT_SettingsFrameMixin:RegisterCategory(data)
 		return;
 	end
 	
-	category =  self:CreateCategory(data)
+	category = self:CreateCategory(data)
 	
 end
 
@@ -763,15 +857,15 @@ function WQT_SettingsFrameMixin:AcquireFrameOfTemplate(template)
 end
 
 function WQT_SettingsFrameMixin:GetTemplateFromType(settingType)
-	if (settingType == _V["SETTING_TYPES"].checkBox) then
+	if (settingType == WorldQuestTab.Variables["SETTING_TYPES"].checkBox) then
 		return "WQT_SettingCheckboxTemplate";
-	elseif (settingType == _V["SETTING_TYPES"].subTitle) then
+	elseif (settingType == WorldQuestTab.Variables["SETTING_TYPES"].subTitle) then
 		return "WQT_SettingSubTitleTemplate";
-	elseif (settingType == _V["SETTING_TYPES"].slider) then
+	elseif (settingType == WorldQuestTab.Variables["SETTING_TYPES"].slider) then
 		return "WQT_SettingSliderTemplate";
-	elseif (settingType == _V["SETTING_TYPES"].dropDown) then
+	elseif (settingType == WorldQuestTab.Variables["SETTING_TYPES"].dropDown) then
 		return "WQT_SettingDropDownTemplate";
-	elseif (settingType == _V["SETTING_TYPES"].button) then
+	elseif (settingType == WorldQuestTab.Variables["SETTING_TYPES"].button) then
 		return "WQT_SettingButtonTemplate";
 	end
 end
@@ -837,12 +931,9 @@ function WQT_SettingsFrameMixin:PlaceSetting(setting)
 	end
 	
 	self.previous = setting;
-	self.totalHeight = self.totalHeight + setting:GetHeight();
 end
 
 function WQT_SettingsFrameMixin:Refresh()
-	self.totalHeight = SETTINGS_PADDING_TOP + SETTINGS_PADDING_BOTTOM;
-
 	self.previous = nil;
 	for i = 1, #self.categoryless do
 		local current = self.categoryless[i];
@@ -850,8 +941,7 @@ function WQT_SettingsFrameMixin:Refresh()
 	end
 	
 	self:PlaceCategories(self.categories);
-	
-	self.ScrollFrame:SetChildHeight(self.totalHeight);
+	self.ScrollFrame.ScrollChild:Layout();
 end
 
 function WQT_SettingsFrameMixin:CategoryTreeHasSettings(category)
