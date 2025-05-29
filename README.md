@@ -20,7 +20,7 @@ TomTom (_Optional_) 
 
 The AddOn can be installed by using your favourite addon client or by manually moving the folder inside the downloaded zip to the following locations:
 
-_Retail:_ `World of Warcraft\\\_retail\_\\Interface\\AddOns\\`
+_Retail:_ `World of Warcraft\\_retail\_\\Interface\\AddOns\\`
 
 ## Other Addons
 
