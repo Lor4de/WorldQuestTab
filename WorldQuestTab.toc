@@ -1,5 +1,5 @@
 ﻿## Interface: 110105
-## Title: World Quest Tab
+## Title: WorldQuestTab
 ## Notes: Creates a new quest tab to keep track of world quests
 ## Author: Lorade
 ## Version: 11.1.5.5
