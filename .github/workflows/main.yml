@@ -27,7 +27,7 @@ jobs:
         echo "Found TOC file: $TOC_FILE"
 
         # TITLE=$(grep "## Title:" "$TOC_FILE" | head -n 1 | awk -F': ' '{print $2}')
-        TITLE=$(echo "$TOC_FILE" | cut -d -f1)
+        TITLE=$(echo "$TOC_FILE" | cut -d'.' -f1)
         VERSION=$(grep "## Version:" "$TOC_FILE" | head -n 1 | awk -F': ' '{print $2}')
 
         if [ -z "$TITLE" ]; then
