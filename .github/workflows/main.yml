@@ -1,0 +1,89 @@
+name: Create ZIP and Release
+
+on:
+  workflow_dispatch: {} # Ermöglicht das manuelle Auslösen des Workflows
+
+jobs:
+  build_and_release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Erforderlich, um den Release zu erstellen und Assets hochzuladen
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4 # Clones dein Repository
+
+    - name: Get info from TOC file
+      id: toc_info
+      run: |
+        # Finde die Datei mit der Endung .TOC
+        TOC_FILE=$(find . -maxdepth 1 -type f -name "*.toc" | head -n 1)
+
+        if [ -z "$TOC_FILE" ]; then
+          echo "::error::No file with .TOC extension found in the repository root."
+          exit 1
+        fi
+
+        echo "Found TOC file: $TOC_FILE"
+
+        TITLE=$(grep "## Title:" "$TOC_FILE" | head -n 1 | awk -F': ' '{print $2}')
+        VERSION=$(grep "## Version:" "$TOC_FILE" | head -n 1 | awk -F': ' '{print $2}')
+
+        if [ -z "$TITLE" ]; then
+          echo "::error file=$TOC_FILE::'## Title:' not found in $TOC_FILE."
+          exit 1
+        fi
+        if [ -z "$VERSION" ]; then
+          echo "::error file=$TOC_FILE::'## Version:' not found in $TOC_FILE."
+          exit 1
+        fi
+
+        # Bereinige den Titel für den Dateinamen (ersetze Leerzeichen durch Unterstriche, entferne Sonderzeichen)
+        # und stelle sicher, dass keine doppelten Unterstriche entstehen und nicht am Anfang/Ende
+        CLEAN_TITLE=$(echo "$TITLE" | sed 's/[^a-zA-Z0-9_-]/_/g' | sed 's/__*/_/g' | sed 's/^_//;s/_$//')
+        CLEAN_VERSION=$(echo "$VERSION" | sed 's/[^a-zA-Z0-9_-]/_/g' | sed 's/__*/_/g' | sed 's/^_//;s/_$//')
+
+        TAG_NAME="${CLEAN_TITLE}-$VERSION"
+        RELEASE_NAME="${CLEAN_TITLE}_$VERSION"
+        ZIP_FILENAME="${CLEAN_TITLE}.zip"
+
+        echo "::set-output name=tag_name::$TAG_NAME"
+        echo "::set-output name=release_name::$RELEASE_NAME"
+        echo "::set-output name=zip_filename::$ZIP_FILENAME"
+
+        # Umgebungsvariable für den ZIP-Dateinamen, die in späteren Schritten verwendet wird
+        echo "ZIP_FILENAME=$ZIP_FILENAME" >> $GITHUB_ENV
+        echo "CLEAN_TITLE=${CLEAN_TITLE}" >> $GITHUB_ENV
+
+    - name: Create ZIP archive
+      run: |
+        echo "Creating ${{ env.ZIP_FILENAME }}..."
+        zip -r "${{ env.ZIP_FILENAME }}" . -x ".git/*" ".github/*"
+        echo "ZIP_FILENAME=${{ env.ZIP_FILENAME }}" >> $GITHUB_ENV # Doppelt, um sicherzustellen
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.toc_info.outputs.tag_name }}
+        release_name: ${{ steps.toc_info.outputs.release_name }}
+        draft: false
+        prerelease: false
+    - name: Verify ZIP File Creation
+      run: |
+        if [ ! -f "${{ env.ZIP_FILENAME }}" ]; then
+        echo "::error::ZIP file not found. Ensure the file is created correctly."
+        exit 1
+        fi
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{ env.ZIP_FILENAME }}
+        asset_name: ${{ env.ZIP_FILENAME }}
+        asset_content_type: application/zip
