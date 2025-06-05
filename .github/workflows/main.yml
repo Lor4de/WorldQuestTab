@@ -17,7 +17,7 @@ jobs:
       id: toc_info
       run: |
         # Finde die Datei mit der Endung .TOC
-        TOC_FILE=$(find . -maxdepth 1 -type f -name "*.toc" | head -n 1)
+        TOC_FILE=$(find . -maxdepth 1 -type f -regex "^[^_]*_[^_]*\.toc$" | head -n 1)
 
         if [ -z "$TOC_FILE" ]; then
           echo "::error::No file with .TOC extension found in the repository root."
@@ -58,8 +58,12 @@ jobs:
 
     - name: Create ZIP archive
       run: |
+        echo "Creating Folder $TITLE"
+        mkdir -p "$CLEAN_TITLE"
+        find . -maxdepth 1 -mindepth 1 ! -name ".git" ! -name ".github" ! -name "$CLEAN_TITLE" -exec cp -r {} "$CLEAN_TITLE"/ \;
         echo "Creating ${{ env.ZIP_FILENAME }}..."
-        zip -r "${{ env.ZIP_FILENAME }}" . -x ".git/*" ".github/*"
+        #zip -r "${{ env.ZIP_FILENAME }}" . -x ".git/*" ".github/*"
+        zip -r "${{ env.ZIP_FILENAME }}" "$CLEAN_TITLE"
         echo "ZIP_FILENAME=${{ env.ZIP_FILENAME }}" >> $GITHUB_ENV # Doppelt, um sicherzustellen
 
     - name: Create Release
