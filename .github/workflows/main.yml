@@ -17,7 +17,7 @@ jobs:
       id: toc_info
       run: |
         # Finde die Datei mit der Endung .TOC
-        TOC_FILE=$(find . -maxdepth 1 -type f -regex "^[^_]*_[^_]*\.toc$" | head -n 1)
+        TOC_FILE=$(find . -maxdepth 1 -type f -regex "^[^_]*_?[^_]*\.toc$" | head -n 1)
 
         if [ -z "$TOC_FILE" ]; then
           echo "::error::No file with .TOC extension found in the repository root."
