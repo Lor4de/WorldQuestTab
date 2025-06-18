@@ -1,8 +1,8 @@
-﻿## Interface: 110105
+﻿## Interface: 110107
 ## Title: WorldQuestTab
 ## Notes: Creates a new quest tab to keep track of world quests
 ## Author: Lorade
-## Version: 11.1.5.5
+## Version: 11.1.5.7
 ## SavedVariables: WorldQuestTabDB
 ## IconTexture: Interface\AddOns\WorldQuestTab\Media\Icons\WorldQuestTab.blp
 
